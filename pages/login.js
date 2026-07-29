@@ -36,10 +36,8 @@ export default function Login() {
   return (
     <div className="page">
       <div className="brand">
-        <div className="brand-icon">📄</div>
-        <div>
-          <div className="brand-title">NFe Scanner</div>
-        </div>
+        <div className="brand-icon">N</div>
+        <div className="brand-title">NFe Scanner</div>
       </div>
       <div className="card">
         <h1 className="title">Entrar</h1>

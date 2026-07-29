@@ -14,13 +14,13 @@ SE for NFe (DANFE):
 - "nome_paciente" e "nome_vendedora": geralmente em "Informações Complementares" / "Dados Adicionais".
 
 SE for Vale/Pedido:
-- "numero_nfe": número que aparece logo após o termo "Numero Pedido :" (grave nesse mesmo campo).
+- "numero_nfe": número que aparece logo após o termo "Numero Pedido :".
 - "razao_social": valor do campo "Cliente".
-- "nome_vendedora" e "nome_paciente": extraia se existirem no documento. Se o paciente não existir, use "-".
+- "nome_vendedora" e "nome_paciente": extraia se existirem. Se o paciente não existir, use "-".
 
 Retorne SOMENTE um JSON válido no formato:
 {"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
-Se algum campo não for encontrado (e não houver regra específica acima), use "" (string vazia). Não inclua texto além do JSON.`;
+Se algum campo não for encontrado, use "" (string vazia). Não inclua texto além do JSON.`;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

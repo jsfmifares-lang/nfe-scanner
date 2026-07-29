@@ -19,7 +19,6 @@ export default async function handler(req, res) {
   try {
     const sheets = getSheetsClient();
 
-    // Verifica se o usuário já existe
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: "usuarios!A2:C"

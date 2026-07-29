@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         razao_social: row[2] || "",
         nome_paciente: row[3] || "",
         nome_vendedora: row[4] || "",
-        foto_id: row[5] || "",
+        foto_drive_id: row[5] || "",
         usuario_id: row[6] || ""
       }))
       .reverse()
