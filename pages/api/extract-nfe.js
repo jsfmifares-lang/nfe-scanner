@@ -1,98 +1,82 @@
+import Tesseract from "tesseract.js";
+
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } }
 };
 
-const SYSTEM_PROMPT = `Você é um assistente que extrai dados de imagens de documentos brasileiros: NFe (DANFE) impressa OU Vale/Pedido.
+function extrairCampo(texto, padroes) {
+  for (const p of padroes) {
+    const m = texto.match(p);
+    if (m) return m[1]?.trim() || m[0]?.trim() || "";
+  }
+  return "";
+}
 
-Identifique primeiro o tipo do documento e aplique as regras:
+function parseNfe(texto) {
+  const t = texto
+    .replace(/\s+/g, " ")
+    .replace(/•/g, "")
+    .trim();
 
-SE for NFe (DANFE):
-- "numero_nfe": número da NF-e (campo "Nº" no cabeçalho).
-- "razao_social": Nome/Razão Social do quadro "DESTINATÁRIO / REMETENTE" (NÃO o emitente do topo).
-- "nome_paciente" e "nome_vendedora": geralmente em "Informações Complementares" / "Dados Adicionais".
+  const numero = extrairCampo(t, [
+    /(\d{2}\.\d{3}\.\d{3}\.\d{3}\.\d{3})/,
+    /(\d{44})/,
+    /(?:N[°º]\s*[:\s]*?\d{9})/,
+    /N[°º]\s*[:\s]*?(\d[\d\s]{8,})/,
+  ]);
 
-SE for Vale/Pedido:
-- "numero_nfe": número que aparece logo após o termo "Numero Pedido :".
-- "razao_social": valor do campo "Cliente".
-- "nome_vendedora" e "nome_paciente": extraia se existirem. Se o paciente não existir, use "-".
+  const razao = extrairCampo(t, [
+    /(?:DESTINAT[ÁA]RIO|REMETENTE|CLIENTE)[\s:]*?\n?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
+    /(?:RAZ[ÃA]O SOCIAL|RAZÃO)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
+  ]);
 
-Retorne SOMENTE um JSON válido no formato:
-{"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
-Se algum campo não for encontrado, use "" (string vazia). Não inclua texto além do JSON.`;
+  let paciente = extrairCampo(t, [
+    /(?:PACIENTE|PACIÊNCIA)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
+    /(?:NOME\s*(?:DO\s*)?PACIENTE)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{2,50})/i,
+  ]);
 
-const MODELOS = [
-  { model: "gemini-2.0-flash", api: "v1beta" },
-  { model: "gemini-1.5-flash", api: "v1" },
-];
+  let vendedora = extrairCampo(t, [
+    /(?:VENDEDORA|VENDEDOR)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
+    /(?:VENDEDORA\s*(?:DO\s*)?(?:A\s*)?)?(?:NOME\s*)?[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{2,50})/i,
+  ]);
 
-async function chamarGemini(modelo, apiVersion, key, mimeType, b64) {
-  const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`;
-  const body = {
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [{
-      role: "user",
-      parts: [
-        { text: "Extraia os dados desta NFe." },
-        { inlineData: { mimeType, data: b64 } }
-      ]
-    }],
-    generationConfig: { responseMimeType: "application/json" }
+  if (!paciente && !vendedora) {
+    const linhas = t.split("\n").filter((l) => l.trim().length > 5);
+    const candidatos = linhas.filter(
+      (l) => /[A-ZÀ-Ú]{3,}/.test(l) && !/\d{6,}/.test(l) && l.split(" ").length >= 2
+    );
+    if (candidatos.length >= 2) {
+      paciente = candidatos[candidatos.length - 2].trim();
+      vendedora = candidatos[candidatos.length - 1].trim();
+    }
+  }
+
+  return {
+    numero_nfe: numero || "",
+    razao_social: razao || "",
+    nome_paciente: paciente || "",
+    nome_vendedora: vendedora || ""
   };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  return res;
 }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
-
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(500).json({ error: "GEMINI_API_KEY ausente" });
 
   const { imageDataUrl } = req.body || {};
   if (!imageDataUrl) return res.status(400).json({ error: "imageDataUrl obrigatório" });
 
   const m = imageDataUrl.match(/^data:(.+);base64,(.+)$/);
   if (!m) return res.status(400).json({ error: "Imagem inválida" });
-  const mimeType = m[1];
-  const b64 = m[2];
 
-  let ultimoErro = "";
-  for (const { model, api } of MODELOS) {
-    for (let tentativa = 0; tentativa < 2; tentativa++) {
-      try {
-        const response = await chamarGemini(model, api, key, mimeType, b64);
-        if (response.ok) {
-          const json = await response.json();
-          const content = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-          let parsed = {};
-          try { parsed = JSON.parse(content); }
-          catch { const jm = content.match(/\{([^}]+)\}/); if (jm) parsed = JSON.parse(jm[0]); }
-          return res.status(200).json({
-            numero_nfe: parsed.numero_nfe ?? "",
-            razao_social: parsed.razao_social ?? "",
-            nome_paciente: parsed.nome_paciente ?? "",
-            nome_vendedora: parsed.nome_vendedora ?? ""
-          });
-        }
-        const body = await response.text();
-        if (response.status === 429) {
-          ultimoErro = "Limite de requisições da IA atingido. Tente novamente em instantes.";
-          await new Promise((r) => setTimeout(r, 4000));
-          continue;
-        }
-        ultimoErro = `Falha (${model}): ${body.slice(0, 150)}`;
-        break;
-      } catch (err) {
-        ultimoErro = "Erro ao processar imagem: " + (err.message || String(err));
-        break;
-      }
-    }
-    if (!ultimoErro.startsWith("Limite")) break;
+  try {
+    const buffer = Buffer.from(m[2], "base64");
+    const { data } = await Tesseract.recognize(buffer, "por", {
+      logger: () => {}
+    });
+    const parsed = parseNfe(data.text);
+    return res.status(200).json(parsed);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao processar imagem: " + (err.message || String(err)) });
   }
-
-  return res.status(429).json({ error: ultimoErro });
 }
