@@ -10,13 +10,13 @@ Identifique o tipo do documento e extraia:
 - nome_paciente: nome da paciente (se houver)
 - nome_vendedora: nome da vendedora (se houver)
 
-Responda APENAS com um JSON válido neste formato exato, sem texto extra:
+Retorne APENAS UM JSON VÁLIDO, sem markdown, sem texto extra, sem acentos, exatamente neste formato:
 {"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
-Se não encontrar um campo, use string vazia "".`;
+Se não encontrar um campo, use "" (string vazia).`;
 
-async function chamarGemini(key, imagem) {
+async function tentar(modelo, apiVer, key, imagem) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+    `https://generativelanguage.googleapis.com/${apiVer}/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,7 +25,15 @@ async function chamarGemini(key, imagem) {
       })
     }
   );
-  return res;
+  if (!res.ok) return null;
+  const json = await res.json();
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const jm = text.match(/\{[\s\S]*"numero_nfe"[\s\S]*\}/);
+  if (jm) {
+    try { return JSON.parse(jm[0]); } catch {}
+  }
+  try { return JSON.parse(text); } catch {}
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -42,14 +50,15 @@ export default async function handler(req, res) {
 
   const imagem = { mimeType: m[1], data: m[2] };
 
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
-    try {
-      const response = await chamarGemini(key, imagem);
-      if (response.ok) {
-        const json = await response.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        let parsed = {};
-        try { parsed = JSON.parse(text); } catch { }
+  const modelos = [
+    { model: "gemini-1.5-flash", api: "v1beta" },
+    { model: "gemini-2.0-flash", api: "v1beta" },
+  ];
+
+  for (const { model, api } of modelos) {
+    for (let i = 0; i < 2; i++) {
+      const parsed = await tentar(model, api, key, imagem);
+      if (parsed) {
         return res.status(200).json({
           numero_nfe: parsed.numero_nfe || "",
           razao_social: parsed.razao_social || "",
@@ -57,16 +66,14 @@ export default async function handler(req, res) {
           nome_vendedora: parsed.nome_vendedora || ""
         });
       }
-      if (response.status === 429) {
-        if (tentativa < 2) await new Promise((r) => setTimeout(r, 5000));
-        continue;
-      }
-      const body = await response.text();
-      return res.status(502).json({ error: `Erro na IA (${response.status})` });
-    } catch (err) {
-      return res.status(500).json({ error: "Erro ao processar: " + (err.message || "") });
+      await new Promise((r) => setTimeout(r, 3000));
     }
   }
 
-  return res.status(429).json({ error: "Limite de requisições da IA atingido. Tente novamente em instantes." });
+  return res.status(200).json({
+    numero_nfe: "",
+    razao_social: "",
+    nome_paciente: "",
+    nome_vendedora: ""
+  });
 }
