@@ -112,10 +112,12 @@ export default function AppPage() {
         setNfe(data);
         setErro("");
       } else {
-        setErro(data.error || "Erro ao ler a nota fiscal.");
+        setErro(data.error || "");
+        setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
       }
     } catch {
       setErro("Falha de comunicação com o servidor de IA.");
+      setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
     } finally {
       setExtracting(false);
     }
@@ -206,19 +208,10 @@ export default function AppPage() {
             {capturedUrl && (
               <img src={capturedUrl} alt="Foto" style={{ width: "100%", borderRadius: 10, marginBottom: 12 }} />
             )}
-            {extracting ? (
-              <div className="loading-text">Lendo a nota com IA...</div>
-            ) : erro ? (
-              <>
-                <div className="error-msg">{erro}</div>
-                <div className="capture-actions">
-                  <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
-                  <button className="btn-primary" onClick={() => extractNfeData(capturedUrl)}>Tentar novamente</button>
-                </div>
-              </>
-            ) : null}
-            {!extracting && !erro && nfe ? (
-              <>
+            {extracting && <div className="loading-text">Lendo a nota com IA...</div>}
+            {erro && <div className="error-msg">{erro}</div>}
+            {nfe ? (
+              <>                
                 <div className="review-field">
                   <label className="field-label">Nº da NFe</label>
                   <input type="text" value={nfe.numero_nfe || ""} onChange={(e) => setNfe({ ...nfe, numero_nfe: e.target.value })} />
@@ -235,12 +228,17 @@ export default function AppPage() {
                   <label className="field-label">Nome da Vendedora</label>
                   <input type="text" value={nfe.nome_vendedora || ""} onChange={(e) => setNfe({ ...nfe, nome_vendedora: e.target.value })} />
                 </div>
-                {erro && <div className="error-msg">{erro}</div>}
                 <div className="capture-actions">
                   <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
-                  <button className="btn-primary" onClick={confirmSave} disabled={saving}>
-                    {saving ? "Salvando..." : "✓ Salvar"}
-                  </button>
+                  {erro ? (
+                    <button className="btn-primary" onClick={() => extractNfeData(capturedUrl)} disabled={saving}>
+                      {saving ? "Tentando..." : "🔄 Tentar IA novamente"}
+                    </button>
+                  ) : (
+                    <button className="btn-primary" onClick={confirmSave} disabled={saving}>
+                      {saving ? "Salvando..." : "✓ Salvar"}
+                    </button>
+                  )}
                 </div>
               </>
             ) : null}

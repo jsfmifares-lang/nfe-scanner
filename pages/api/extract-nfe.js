@@ -18,7 +18,7 @@ SE for Vale/Pedido:
 - "razao_social": valor do campo "Cliente".
 - "nome_vendedora" e "nome_paciente": extraia se existirem. Se o paciente não existir, use "-".
 
-Retorne SOMENTE um JSON válido no formato:
+Retorne SOMENTE um JSON válido (sem markdown, sem acentos) no formato:
 {"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
 Se algum campo não for encontrado, use "" (string vazia). Não inclua texto além do JSON.`;
 
@@ -40,22 +40,20 @@ export default async function handler(req, res) {
     let response;
     for (let tentativa = 0; tentativa < 3; tentativa++) {
       response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents: [
               {
                 role: "user",
                 parts: [
-                  { text: "Extraia os dados desta NFe." },
+                  { text: SYSTEM_PROMPT + "\n\nExtraia os dados desta imagem." },
                   { inlineData: { mimeType, data: b64 } }
                 ]
               }
-            ],
-            generationConfig: { responseMimeType: "application/json" }
+            ]
           })
         }
       );
