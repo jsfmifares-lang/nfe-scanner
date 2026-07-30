@@ -1,66 +1,38 @@
-import Tesseract from "tesseract.js";
-
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } }
 };
 
-function extrairCampo(texto, padroes) {
-  for (const p of padroes) {
-    const m = texto.match(p);
-    if (m) return m[1]?.trim() || m[0]?.trim() || "";
-  }
-  return "";
-}
+const PROMPT = `Você é um assistente que extrai dados de imagens de notas fiscais brasileiras (NFe/DANFE) e vales/pedidos.
 
-function parseNfe(texto) {
-  const t = texto
-    .replace(/\s+/g, " ")
-    .replace(/•/g, "")
-    .trim();
+Identifique o tipo do documento e extraia:
+- numero_nfe: número da NF-e (campo "Nº") ou número após "Numero Pedido :"
+- razao_social: nome do DESTINATÁRIO/REMETENTE (NÃO o emitente) ou Cliente
+- nome_paciente: nome da paciente (se houver)
+- nome_vendedora: nome da vendedora (se houver)
 
-  const numero = extrairCampo(t, [
-    /(\d{2}\.\d{3}\.\d{3}\.\d{3}\.\d{3})/,
-    /(\d{44})/,
-    /(?:N[°º]\s*[:\s]*?\d{9})/,
-    /N[°º]\s*[:\s]*?(\d[\d\s]{8,})/,
-  ]);
+Responda APENAS com um JSON válido neste formato exato, sem texto extra:
+{"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
+Se não encontrar um campo, use string vazia "".`;
 
-  const razao = extrairCampo(t, [
-    /(?:DESTINAT[ÁA]RIO|REMETENTE|CLIENTE)[\s:]*?\n?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    /(?:RAZ[ÃA]O SOCIAL|RAZÃO)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-  ]);
-
-  let paciente = extrairCampo(t, [
-    /(?:PACIENTE|PACIÊNCIA)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    /(?:NOME\s*(?:DO\s*)?PACIENTE)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{2,50})/i,
-  ]);
-
-  let vendedora = extrairCampo(t, [
-    /(?:VENDEDORA|VENDEDOR)[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    /(?:VENDEDORA\s*(?:DO\s*)?(?:A\s*)?)?(?:NOME\s*)?[\s:]*?([A-ZÀ-Ú][A-ZÀ-Ú\s]{2,50})/i,
-  ]);
-
-  if (!paciente && !vendedora) {
-    const linhas = t.split("\n").filter((l) => l.trim().length > 5);
-    const candidatos = linhas.filter(
-      (l) => /[A-ZÀ-Ú]{3,}/.test(l) && !/\d{6,}/.test(l) && l.split(" ").length >= 2
-    );
-    if (candidatos.length >= 2) {
-      paciente = candidatos[candidatos.length - 2].trim();
-      vendedora = candidatos[candidatos.length - 1].trim();
+async function chamarGemini(key, imagem) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: imagem }] }]
+      })
     }
-  }
-
-  return {
-    numero_nfe: numero || "",
-    razao_social: razao || "",
-    nome_paciente: paciente || "",
-    nome_vendedora: vendedora || ""
-  };
+  );
+  return res;
 }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
+
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: "GEMINI_API_KEY ausente" });
 
   const { imageDataUrl } = req.body || {};
   if (!imageDataUrl) return res.status(400).json({ error: "imageDataUrl obrigatório" });
@@ -68,15 +40,33 @@ export default async function handler(req, res) {
   const m = imageDataUrl.match(/^data:(.+);base64,(.+)$/);
   if (!m) return res.status(400).json({ error: "Imagem inválida" });
 
-  try {
-    const buffer = Buffer.from(m[2], "base64");
-    const { data } = await Tesseract.recognize(buffer, "por", {
-      logger: () => {}
-    });
-    const parsed = parseNfe(data.text);
-    return res.status(200).json(parsed);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Erro ao processar imagem: " + (err.message || String(err)) });
+  const imagem = { mimeType: m[1], data: m[2] };
+
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const response = await chamarGemini(key, imagem);
+      if (response.ok) {
+        const json = await response.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        let parsed = {};
+        try { parsed = JSON.parse(text); } catch { }
+        return res.status(200).json({
+          numero_nfe: parsed.numero_nfe || "",
+          razao_social: parsed.razao_social || "",
+          nome_paciente: parsed.nome_paciente || "",
+          nome_vendedora: parsed.nome_vendedora || ""
+        });
+      }
+      if (response.status === 429) {
+        if (tentativa < 2) await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      const body = await response.text();
+      return res.status(502).json({ error: `Erro na IA (${response.status})` });
+    } catch (err) {
+      return res.status(500).json({ error: "Erro ao processar: " + (err.message || "") });
+    }
   }
+
+  return res.status(429).json({ error: "Limite de requisições da IA atingido. Tente novamente em instantes." });
 }

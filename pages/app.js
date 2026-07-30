@@ -103,56 +103,25 @@ export default function AppPage() {
     setExtracting(true);
     setErro("");
     try {
-      const Tesseract = await import("tesseract.js");
-      const { data } = await Tesseract.recognize(dataUrl, "por", {
-        logger: () => {}
+      const res = await fetch("/api/extract-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageDataUrl: dataUrl })
       });
-      const texto = data.text
-        .replace(/\s+/g, " ")
-        .replace(/•/g, "")
-        .trim();
-      setNfe(parseOcrText(texto));
-      setErro("");
-    } catch (err) {
-      setErro("Não foi possível ler a nota. Digite os dados manualmente.");
+      const data = await res.json();
+      if (res.ok) {
+        setNfe(data);
+        setErro("");
+      } else {
+        setErro(data.error || "");
+        setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
+      }
+    } catch {
+      setErro("Falha de comunicação com o servidor de IA.");
       setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
     } finally {
       setExtracting(false);
     }
-  }
-
-  function parseOcrText(t) {
-    function extrair(padroes) {
-      for (const p of padroes) {
-        const m = t.match(p);
-        if (m) return (m[1] || m[0]).trim();
-      }
-      return "";
-    }
-    const numero = extrair([
-      /(\d{2}\.\d{3}\.\d{3}\.\d{3}\.\d{3})/,
-      /(\d{44})/,
-      /N[°º]\s*[:\s]*(\d{9})/i,
-    ]);
-    const razao = extrair([
-      /DESTINAT[ÁA]RIO[\s:]*([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-      /CLIENTE[\s:]*([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    ]);
-    let paciente = extrair([
-      /PACIENTE[\s:]*([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    ]);
-    let vendedora = extrair([
-      /VENDEDORA[\s:]*([A-ZÀ-Ú][A-ZÀ-Ú\s]{3,50})/i,
-    ]);
-    if (!paciente && !vendedora) {
-      const linhas = t.split("\n").filter(l => l.trim().length > 5);
-      const candidatos = linhas.filter(l => /[A-ZÀ-Ú]{3,}/.test(l) && !/\d{6,}/.test(l) && l.split(" ").length >= 2);
-      if (candidatos.length >= 2) {
-        paciente = candidatos[candidatos.length - 2].trim();
-        vendedora = candidatos[candidatos.length - 1].trim();
-      }
-    }
-    return { numero_nfe: numero, razao_social: razao, nome_paciente: paciente, nome_vendedora: vendedora };
   }
 
   async function confirmSave() {
