@@ -40,20 +40,22 @@ export default async function handler(req, res) {
     let response;
     for (let tentativa = 0; tentativa < 3; tentativa++) {
       response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents: [
               {
                 role: "user",
                 parts: [
-                  { text: SYSTEM_PROMPT + "\n\nExtraia os dados desta imagem." },
+                  { text: "Extraia os dados desta NFe." },
                   { inlineData: { mimeType, data: b64 } }
                 ]
               }
-            ]
+            ],
+            generationConfig: { responseMimeType: "application/json" }
           })
         }
       );
