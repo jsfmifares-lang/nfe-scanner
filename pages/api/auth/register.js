@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getSheetsClient, SPREADSHEET_ID } from "../../../lib/google-clients";
+import { supabase } from "../../../lib/supabase";
 
 function hashSenha(senha) {
   return crypto.createHash("sha256").update(senha).digest("hex");
@@ -17,27 +17,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sheets = getSheetsClient();
+    const { data: existing } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("usuario", usuario.toLowerCase())
+      .maybeSingle();
 
-    const existing = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "usuario!A2:C"
-    });
-    const rows = existing.data.values || [];
-    const jaExiste = rows.some((row) => (row[1] || "").toLowerCase() === usuario.toLowerCase());
-    if (jaExiste) {
+    if (existing) {
       return res.status(409).json({ error: "Esse usuário já existe" });
     }
 
-    const usuarioId = crypto.randomUUID();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "usuario!A:C",
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [[usuarioId, usuario, hashSenha(senha)]] }
-    });
+    const { data, error } = await supabase
+      .from("usuarios")
+      .insert({ usuario: usuario.toLowerCase(), senha_hash: hashSenha(senha) })
+      .select("id, usuario")
+      .single();
 
-    return res.status(200).json({ usuario_id: usuarioId, usuario });
+    if (error) throw error;
+
+    return res.status(200).json({ usuario_id: data.id, usuario: data.usuario });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Falha ao cadastrar: " + (err.message || String(err)) });

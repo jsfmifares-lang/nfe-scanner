@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getSheetsClient, SPREADSHEET_ID } from "../../../lib/google-clients";
+import { supabase } from "../../../lib/supabase";
 
 function hashSenha(senha) {
   return crypto.createHash("sha256").update(senha).digest("hex");
@@ -14,22 +14,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sheets = getSheetsClient();
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "usuario!A2:C"
-    });
-    const rows = result.data.values || [];
-    const senhaHash = hashSenha(senha);
-    const match = rows.find(
-      (row) => (row[1] || "").toLowerCase() === usuario.toLowerCase() && row[2] === senhaHash
-    );
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id, usuario, senha_hash")
+      .eq("usuario", usuario.toLowerCase())
+      .maybeSingle();
 
-    if (!match) {
+    if (error) throw error;
+
+    if (!data || data.senha_hash !== hashSenha(senha)) {
       return res.status(401).json({ error: "Usuário ou senha incorretos" });
     }
 
-    return res.status(200).json({ usuario_id: match[0], usuario: match[1] });
+    return res.status(200).json({ usuario_id: data.id, usuario: data.usuario });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Falha ao entrar: " + (err.message || String(err)) });

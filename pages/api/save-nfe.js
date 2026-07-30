@@ -1,4 +1,4 @@
-import { getSheetsClient, SPREADSHEET_ID } from "../../lib/google-clients";
+import { supabase } from "../../lib/supabase";
 import { uploadToDrive } from "../../lib/upload";
 
 export const config = {
@@ -23,23 +23,18 @@ export default async function handler(req, res) {
     const fileUrl = await uploadToDrive(dataUrl, "app_nfes");
 
     const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-    const values = [[
-      now,
-      nfe.numero_nfe || "",
-      nfe.razao_social || "",
-      nfe.nome_paciente || "",
-      nfe.nome_vendedora || "",
-      fileUrl,
-      usuario || ""
-    ]];
 
-    const sheets = getSheetsClient();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "historico!A:G",
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values }
+    const { error } = await supabase.from("nfe_historico").insert({
+      data_hora: now,
+      numero_nfe: nfe.numero_nfe || "",
+      razao_social: nfe.razao_social || "",
+      nome_paciente: nfe.nome_paciente || "",
+      nome_vendedora: nfe.nome_vendedora || "",
+      foto_url: fileUrl,
+      usuario: usuario || ""
     });
+
+    if (error) throw error;
 
     return res.status(200).json({
       data_hora: now,

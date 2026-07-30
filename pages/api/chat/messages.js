@@ -1,4 +1,4 @@
-import { getSheetsClient, SPREADSHEET_ID } from "../../../lib/google-clients";
+import { supabase } from "../../../lib/supabase";
 import { uploadToDrive } from "../../../lib/upload";
 
 export const config = {
@@ -8,23 +8,25 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const sheets = getSheetsClient();
-
   if (req.method === "GET") {
     try {
-      const result = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: "chat!A:D"
-      });
-      const rows = result.data.values || [];
-      const messages = rows.map((row, idx) => ({
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(100);
+
+      if (error) throw error;
+
+      const messages = (data || []).map((row, idx) => ({
         chat_id: String(idx),
-        data_hora: row[0] || "",
-        remetente: row[1] || "",
-        mensagem: row[2] || "",
-        eh_audio: (row[3] || "") === "audio"
+        data_hora: row.data_hora || "",
+        remetente: row.remetente || "",
+        mensagem: row.mensagem || "",
+        eh_audio: (row.tipo || "") === "audio"
       }));
-      return res.status(200).json(messages.slice(-100));
+
+      return res.status(200).json(messages);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: "Falha ao ler mensagens: " + (err.message || String(err)) });
@@ -47,12 +49,15 @@ export default async function handler(req, res) {
       if (!texto) return res.status(400).json({ error: "Mensagem vazia" });
 
       const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: "chat!A:D",
-        valueInputOption: "USER_ENTERED",
-        requestBody: { values: [[now, remetente, texto, tipo]] }
+
+      const { error } = await supabase.from("chat_messages").insert({
+        data_hora: now,
+        remetente,
+        mensagem: texto,
+        tipo
       });
+
+      if (error) throw error;
 
       return res.status(200).json({ data_hora: now, remetente, mensagem: texto, eh_audio: tipo === "audio" });
     } catch (err) {

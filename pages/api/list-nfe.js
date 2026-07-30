@@ -1,28 +1,26 @@
-import { getSheetsClient, SPREADSHEET_ID } from "../../lib/google-clients";
+import { supabase } from "../../lib/supabase";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Método não permitido" });
 
   try {
-    const sheets = getSheetsClient();
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "historico!A:G"
-    });
-    const rows = result.data.values || [];
+    const { data, error } = await supabase
+      .from("nfe_historico")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(30);
 
-    const items = rows
-      .map((row) => ({
-        data_hora: row[0] || "",
-        numero_nfe: row[1] || "",
-        razao_social: row[2] || "",
-        nome_paciente: row[3] || "",
-        nome_vendedora: row[4] || "",
-        foto_drive_id: row[5] || "",
-        usuario_id: row[6] || ""
-      }))
-      .reverse()
-      .slice(0, 30);
+    if (error) throw error;
+
+    const items = (data || []).map((row) => ({
+      data_hora: row.data_hora || "",
+      numero_nfe: row.numero_nfe || "",
+      razao_social: row.razao_social || "",
+      nome_paciente: row.nome_paciente || "",
+      nome_vendedora: row.nome_vendedora || "",
+      foto_drive_id: row.foto_url || "",
+      usuario_id: row.usuario || ""
+    }));
 
     return res.status(200).json(items);
   } catch (err) {
