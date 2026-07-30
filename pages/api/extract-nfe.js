@@ -39,24 +39,23 @@ export default async function handler(req, res) {
   try {
     let response;
     for (let tentativa = 0; tentativa < 3; tentativa++) {
+      const body = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: SYSTEM_PROMPT + "\n\nExtraia os dados desta imagem." },
+              { inlineData: { mimeType, data: b64 } }
+            ]
+          }
+        ]
+      };
       response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: "Extraia os dados desta NFe." },
-                  { inlineData: { mimeType, data: b64 } }
-                ]
-              }
-            ],
-            generationConfig: { responseMimeType: "application/json" }
-          })
+          body: JSON.stringify(body)
         }
       );
       if (response.status !== 429) break;
