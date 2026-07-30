@@ -28,64 +28,47 @@ export default async function handler(req, res) {
 
   const imagem = { mimeType: m[1], data: m[2] };
 
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
-    try {
-      const resGemini = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: PROMPT }] },
-            contents: [{
-              role: "user",
-              parts: [
-                { text: "Extraia os dados desta NFe." },
-                { inlineData: imagem }
-              ]
-            }],
-            generationConfig: { responseMimeType: "application/json" }
-          })
-        }
-      );
-
-      if (resGemini.ok) {
-        const json = await resGemini.json();
-        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        let parsed = {};
-        try { parsed = JSON.parse(raw); } catch {
-          const jm = raw.match(/\{[\s\S]*\}/);
-          if (jm) try { parsed = JSON.parse(jm[0]); } catch {}
-        }
-        return res.status(200).json({
-          numero_nfe: parsed.numero_nfe || "",
-          razao_social: parsed.razao_social || "",
-          nome_paciente: parsed.nome_paciente || "",
-          nome_vendedora: parsed.nome_vendedora || "",
-          _debug: raw.slice(0, 300)
-        });
+  try {
+    const gemini = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: PROMPT },
+              { inlineData: imagem }
+            ]
+          }]
+        })
       }
+    );
 
-      if (resGemini.status === 429) {
-        if (tentativa < 2) await new Promise((r) => setTimeout(r, 5000));
-        continue;
-      }
-
-      const body = await resGemini.text();
+    if (!gemini.ok) {
       return res.status(200).json({
-        numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
-        _debug: `HTTP ${resGemini.status}: ${body.slice(0, 200)}`
-      });
-    } catch (err) {
-      return res.status(200).json({
-        numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
-        _debug: "Erro: " + (err.message || "")
+        numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: ""
       });
     }
-  }
 
-  return res.status(200).json({
-    numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
-    _debug: "Esgotou tentativas"
-  });
+    const json = await gemini.json();
+    const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let parsed = {};
+    try { parsed = JSON.parse(raw); } catch {
+      const jm = raw.match(/\{[\s\S]*\}/);
+      if (jm) try { parsed = JSON.parse(jm[0]); } catch {}
+    }
+
+    return res.status(200).json({
+      numero_nfe: parsed.numero_nfe || "",
+      razao_social: parsed.razao_social || "",
+      nome_paciente: parsed.nome_paciente || "",
+      nome_vendedora: parsed.nome_vendedora || ""
+    });
+  } catch {
+    return res.status(200).json({
+      numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: ""
+    });
+  }
 }
