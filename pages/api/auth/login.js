@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const sheets = getSheetsClient();
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "usuarios!A2:C"
+      range: "usuario!A2:C"
     });
     const rows = result.data.values || [];
     const senhaHash = hashSenha(senha);

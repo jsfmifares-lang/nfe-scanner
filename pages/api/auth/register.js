@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "usuarios!A2:C"
+      range: "usuario!A2:C"
     });
     const rows = existing.data.values || [];
     const jaExiste = rows.some((row) => (row[1] || "").toLowerCase() === usuario.toLowerCase());
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const usuarioId = crypto.randomUUID();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "usuarios!A:C",
+      range: "usuario!A:C",
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [[usuarioId, usuario, hashSenha(senha)]] }
     });
