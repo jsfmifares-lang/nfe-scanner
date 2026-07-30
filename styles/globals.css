@@ -121,13 +121,13 @@ button.btn-secondary {
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  aspect-ratio: 3/4;
-  min-height: 62vh;
+  width: 100%;
+  min-height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.capture-box video { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.capture-box video { width: 100%; display: block; }
 .capture-actions { display: flex; gap: 10px; margin-top: 12px; }
 .capture-actions button { flex: 1; }
 button.btn-cancel {

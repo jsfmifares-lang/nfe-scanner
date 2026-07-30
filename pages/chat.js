@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
-let tempIdCounter = 0;
-
 export default function ChatPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [localMsgs, setLocalMsgs] = useState([]);
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
   const [sending, setSending] = useState(false);
@@ -16,7 +15,7 @@ export default function ChatPage() {
   const chunksRef = useRef([]);
   const bottomRef = useRef(null);
   const chatRef = useRef(null);
-  const localAudioRef = useRef({});
+  const needsScrollRef = useRef(false);
 
   useEffect(() => {
     const raw = localStorage.getItem("nfe_user");
@@ -28,33 +27,28 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    const el = chatRef.current;
-    if (!el) return;
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (isAtBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (needsScrollRef.current) {
+      needsScrollRef.current = false;
+      const el = chatRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    } else {
+      const el = chatRef.current;
+      if (!el) return;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
-  }, [messages]);
+  });
 
   async function loadMessages() {
     try {
       const res = await fetch("/api/chat/messages");
-      if (res.ok) {
-        const server = await res.json();
-        setMessages((prev) => {
-          const merged = [];
-          const seen = new Set();
-          for (const m of prev) {
-            if (m._local) continue;
-            if (!seen.has(m.chat_id)) { seen.add(m.chat_id); merged.push(m); }
-          }
-          for (const m of server) {
-            if (!seen.has(m.chat_id)) { seen.add(m.chat_id); merged.push(m); }
-          }
-          return merged;
-        });
-      }
+      if (res.ok) setMessages(await res.json());
     } catch {}
+  }
+
+  function scrollToBottom() {
+    needsScrollRef.current = true;
   }
 
   async function sendText() {
@@ -70,6 +64,7 @@ export default function ChatPage() {
         body: JSON.stringify({ remetente: user.usuario, mensagem: t })
       });
       if (!res.ok) { setErro("Falha ao enviar mensagem"); return; }
+      scrollToBottom();
       loadMessages();
     } catch { setErro("Erro de conexão"); }
     setSending(false);
@@ -80,21 +75,11 @@ export default function ChatPage() {
     setSending(true);
     setErro("");
 
-    const tempId = --tempIdCounter;
+    const id = Date.now() + "_" + Math.random().toString(36).slice(2);
     const objUrl = URL.createObjectURL(blob);
-    localAudioRef.current[tempId] = objUrl;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        chat_id: tempId,
-        remetente: user.usuario,
-        mensagem: objUrl,
-        eh_audio: true,
-        data_hora: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-        _local: true
-      }
-    ]);
+    setLocalMsgs((prev) => [...prev, { id, objUrl, remetente: user.usuario }]);
+    scrollToBottom();
 
     try {
       const res = await fetch("/api/chat/messages", {
@@ -102,7 +87,8 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remetente: user.usuario, mensagem: "", audioDataUrl: dataUrl })
       });
-      if (!res.ok) { setErro("Falha ao enviar áudio"); return; }
+      if (!res.ok) { setErro("Falha ao enviar áudio"); }
+      setLocalMsgs((prev) => prev.filter((m) => m.id !== id));
       loadMessages();
     } catch { setErro("Erro de conexão"); }
     setSending(false);
@@ -132,6 +118,17 @@ export default function ChatPage() {
   }
 
   const nome = user?.usuario || "";
+  const allMessages = [
+    ...localMsgs.map((m) => ({
+      chat_id: m.id,
+      remetente: m.remetente,
+      mensagem: m.objUrl,
+      eh_audio: true,
+      data_hora: "agora",
+      _local: true
+    })),
+    ...messages
+  ];
 
   return (
     <div className="page">
@@ -142,7 +139,7 @@ export default function ChatPage() {
         </div>
 
         <div className="chat-messages" ref={chatRef}>
-          {messages.map((msg) => (
+          {allMessages.map((msg) => (
             <div key={msg.chat_id} className={`msg-row ${msg.remetente === nome ? "mine" : ""}`}>
               <div className="msg-bubble">
                 <div className="msg-sender">{msg.remetente}</div>
