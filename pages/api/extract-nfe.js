@@ -37,26 +37,31 @@ export default async function handler(req, res) {
   const b64 = m[2];
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: "Extraia os dados desta NFe." },
-                { inlineData: { mimeType, data: b64 } }
-              ]
-            }
-          ],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      }
-    );
+    let response;
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: "Extraia os dados desta NFe." },
+                  { inlineData: { mimeType, data: b64 } }
+                ]
+              }
+            ],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        }
+      );
+      if (response.status !== 429) break;
+      if (tentativa < 2) await new Promise((r) => setTimeout(r, 3000));
+    }
 
     if (!response.ok) {
       const body = await response.text();
