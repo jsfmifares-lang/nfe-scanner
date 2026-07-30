@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
+let tempIdCounter = 0;
+
 export default function ChatPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -13,6 +15,8 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const bottomRef = useRef(null);
+  const chatRef = useRef(null);
+  const localAudioRef = useRef({});
 
   useEffect(() => {
     const raw = localStorage.getItem("nfe_user");
@@ -24,13 +28,32 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    if (isAtBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   async function loadMessages() {
     try {
       const res = await fetch("/api/chat/messages");
-      if (res.ok) setMessages(await res.json());
+      if (res.ok) {
+        const server = await res.json();
+        setMessages((prev) => {
+          const merged = [];
+          const seen = new Set();
+          for (const m of prev) {
+            if (m._local) continue;
+            if (!seen.has(m.chat_id)) { seen.add(m.chat_id); merged.push(m); }
+          }
+          for (const m of server) {
+            if (!seen.has(m.chat_id)) { seen.add(m.chat_id); merged.push(m); }
+          }
+          return merged;
+        });
+      }
     } catch {}
   }
 
@@ -46,22 +69,41 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remetente: user.usuario, mensagem: t })
       });
-      if (!res.ok) setErro("Falha ao enviar mensagem");
+      if (!res.ok) { setErro("Falha ao enviar mensagem"); return; }
+      loadMessages();
     } catch { setErro("Erro de conexão"); }
     setSending(false);
   }
 
-  async function sendAudio(dataUrl) {
+  async function sendAudio(dataUrl, blob) {
     if (!user || sending) return;
     setSending(true);
     setErro("");
+
+    const tempId = --tempIdCounter;
+    const objUrl = URL.createObjectURL(blob);
+    localAudioRef.current[tempId] = objUrl;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        chat_id: tempId,
+        remetente: user.usuario,
+        mensagem: objUrl,
+        eh_audio: true,
+        data_hora: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+        _local: true
+      }
+    ]);
+
     try {
       const res = await fetch("/api/chat/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remetente: user.usuario, mensagem: "", audioDataUrl: dataUrl })
       });
-      if (!res.ok) setErro("Falha ao enviar áudio");
+      if (!res.ok) { setErro("Falha ao enviar áudio"); return; }
+      loadMessages();
     } catch { setErro("Erro de conexão"); }
     setSending(false);
   }
@@ -77,7 +119,7 @@ export default function ChatPage() {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         const reader = new FileReader();
-        reader.onload = () => sendAudio(reader.result);
+        reader.onload = () => sendAudio(reader.result, blob);
         reader.readAsDataURL(blob);
       };
       recorder.start();
@@ -99,7 +141,7 @@ export default function ChatPage() {
           <Link href="/app" style={{ color: "#fff", textDecoration: "none", fontSize: 20 }}>✕</Link>
         </div>
 
-        <div className="chat-messages">
+        <div className="chat-messages" ref={chatRef}>
           {messages.map((msg) => (
             <div key={msg.chat_id} className={`msg-row ${msg.remetente === nome ? "mine" : ""}`}>
               <div className="msg-bubble">

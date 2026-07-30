@@ -110,13 +110,12 @@ export default function AppPage() {
       const data = await res.json();
       if (res.ok) {
         setNfe(data);
+        setErro("");
       } else {
         setErro(data.error || "Erro ao ler a nota fiscal.");
-        setMode("idle");
       }
     } catch {
       setErro("Falha de comunicação com o servidor de IA.");
-      setMode("idle");
     } finally {
       setExtracting(false);
     }
@@ -209,35 +208,42 @@ export default function AppPage() {
             )}
             {extracting ? (
               <div className="loading-text">Lendo a nota com IA...</div>
-            ) : (
-              nfe && (
-                <>
-                  <div className="review-field">
-                    <label className="field-label">Nº da NFe</label>
-                    <input type="text" value={nfe.numero_nfe || ""} onChange={(e) => setNfe({ ...nfe, numero_nfe: e.target.value })} />
-                  </div>
-                  <div className="review-field">
-                    <label className="field-label">Razão Social / Destinatário</label>
-                    <input type="text" value={nfe.razao_social || ""} onChange={(e) => setNfe({ ...nfe, razao_social: e.target.value })} />
-                  </div>
-                  <div className="review-field">
-                    <label className="field-label">Nome da Paciente</label>
-                    <input type="text" value={nfe.nome_paciente || ""} onChange={(e) => setNfe({ ...nfe, nome_paciente: e.target.value })} />
-                  </div>
-                  <div className="review-field">
-                    <label className="field-label">Nome da Vendedora</label>
-                    <input type="text" value={nfe.nome_vendedora || ""} onChange={(e) => setNfe({ ...nfe, nome_vendedora: e.target.value })} />
-                  </div>
-                  {erro && <div className="error-msg">{erro}</div>}
-                  <div className="capture-actions">
-                    <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
-                    <button className="btn-primary" onClick={confirmSave} disabled={saving}>
-                      {saving ? "Salvando..." : "✓ Salvar"}
-                    </button>
-                  </div>
-                </>
-              )
-            )}
+            ) : erro ? (
+              <>
+                <div className="error-msg">{erro}</div>
+                <div className="capture-actions">
+                  <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
+                  <button className="btn-primary" onClick={() => extractNfeData(capturedUrl)}>Tentar novamente</button>
+                </div>
+              </>
+            ) : null}
+            {!extracting && !erro && nfe ? (
+              <>
+                <div className="review-field">
+                  <label className="field-label">Nº da NFe</label>
+                  <input type="text" value={nfe.numero_nfe || ""} onChange={(e) => setNfe({ ...nfe, numero_nfe: e.target.value })} />
+                </div>
+                <div className="review-field">
+                  <label className="field-label">Razão Social / Destinatário</label>
+                  <input type="text" value={nfe.razao_social || ""} onChange={(e) => setNfe({ ...nfe, razao_social: e.target.value })} />
+                </div>
+                <div className="review-field">
+                  <label className="field-label">Nome da Paciente</label>
+                  <input type="text" value={nfe.nome_paciente || ""} onChange={(e) => setNfe({ ...nfe, nome_paciente: e.target.value })} />
+                </div>
+                <div className="review-field">
+                  <label className="field-label">Nome da Vendedora</label>
+                  <input type="text" value={nfe.nome_vendedora || ""} onChange={(e) => setNfe({ ...nfe, nome_vendedora: e.target.value })} />
+                </div>
+                {erro && <div className="error-msg">{erro}</div>}
+                <div className="capture-actions">
+                  <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
+                  <button className="btn-primary" onClick={confirmSave} disabled={saving}>
+                    {saving ? "Salvando..." : "✓ Salvar"}
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         )}
 
