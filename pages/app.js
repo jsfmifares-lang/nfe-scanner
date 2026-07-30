@@ -93,6 +93,7 @@ export default function AppPage() {
       const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
       stopCamera();
       setCapturedUrl(dataUrl);
+      setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
       setMode("review");
       extractNfeData(dataUrl);
     }
