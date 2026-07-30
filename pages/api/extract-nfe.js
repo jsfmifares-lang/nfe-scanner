@@ -21,7 +21,8 @@ async function tentar(modelo, apiVer, key, imagem) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: imagem }] }]
+        contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: imagem }] }],
+        generationConfig: { responseMimeType: "application/json" }
       })
     }
   );
