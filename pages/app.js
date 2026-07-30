@@ -109,9 +109,10 @@ export default function AppPage() {
         body: JSON.stringify({ imageDataUrl: dataUrl })
       });
       const data = await res.json();
-      if (res.ok) {
+      if (data._debug) setErro("DEBUG: " + data._debug);
+      if (res.ok || data._debug) {
         setNfe(data);
-        setErro("");
+        setErro(data._debug ? "DEBUG: " + data._debug : "");
       } else {
         setErro(data.error || "");
         setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });

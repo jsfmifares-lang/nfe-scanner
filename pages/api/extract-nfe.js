@@ -14,29 +14,6 @@ Retorne APENAS UM JSON VÁLIDO, sem markdown, sem texto extra, sem acentos, exat
 {"numero_nfe":"...","razao_social":"...","nome_paciente":"...","nome_vendedora":"..."}
 Se não encontrar um campo, use "" (string vazia).`;
 
-async function tentar(modelo, apiVer, key, imagem) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/${apiVer}/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: imagem }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      })
-    }
-  );
-  if (!res.ok) return null;
-  const json = await res.json();
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const jm = text.match(/\{[\s\S]*"numero_nfe"[\s\S]*\}/);
-  if (jm) {
-    try { return JSON.parse(jm[0]); } catch {}
-  }
-  try { return JSON.parse(text); } catch {}
-  return null;
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
 
@@ -51,30 +28,64 @@ export default async function handler(req, res) {
 
   const imagem = { mimeType: m[1], data: m[2] };
 
-  const modelos = [
-    { model: "gemini-1.5-flash", api: "v1beta" },
-    { model: "gemini-2.0-flash", api: "v1beta" },
-  ];
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const resGemini = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: PROMPT }] },
+            contents: [{
+              role: "user",
+              parts: [
+                { text: "Extraia os dados desta NFe." },
+                { inlineData: imagem }
+              ]
+            }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        }
+      );
 
-  for (const { model, api } of modelos) {
-    for (let i = 0; i < 2; i++) {
-      const parsed = await tentar(model, api, key, imagem);
-      if (parsed) {
+      if (resGemini.ok) {
+        const json = await resGemini.json();
+        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        let parsed = {};
+        try { parsed = JSON.parse(raw); } catch {
+          const jm = raw.match(/\{[\s\S]*\}/);
+          if (jm) try { parsed = JSON.parse(jm[0]); } catch {}
+        }
         return res.status(200).json({
           numero_nfe: parsed.numero_nfe || "",
           razao_social: parsed.razao_social || "",
           nome_paciente: parsed.nome_paciente || "",
-          nome_vendedora: parsed.nome_vendedora || ""
+          nome_vendedora: parsed.nome_vendedora || "",
+          _debug: raw.slice(0, 300)
         });
       }
-      await new Promise((r) => setTimeout(r, 3000));
+
+      if (resGemini.status === 429) {
+        if (tentativa < 2) await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+
+      const body = await resGemini.text();
+      return res.status(200).json({
+        numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
+        _debug: `HTTP ${resGemini.status}: ${body.slice(0, 200)}`
+      });
+    } catch (err) {
+      return res.status(200).json({
+        numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
+        _debug: "Erro: " + (err.message || "")
+      });
     }
   }
 
   return res.status(200).json({
-    numero_nfe: "",
-    razao_social: "",
-    nome_paciente: "",
-    nome_vendedora: ""
+    numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "",
+    _debug: "Esgotou tentativas"
   });
 }
