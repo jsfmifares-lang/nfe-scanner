@@ -251,7 +251,7 @@ export default function AppPage() {
           <div className="loading-text">Carregando...</div>
         ) : (
           items && items.map((item, idx) => (
-            <div className="nfe-card" key={idx} onClick={() => item.foto_drive_id && setModalPhotoUrl(`/api/photo?id=${item.foto_drive_id}`)}>
+            <div className="nfe-card" key={idx} onClick={() => item.foto_drive_id && setModalPhotoUrl(item.foto_drive_id)}>
               <div className="nfe-thumb">📷</div>
               <div className="nfe-info">
                 <div><b>Nº:</b> {item.numero_nfe}</div>

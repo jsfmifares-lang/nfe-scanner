@@ -40,8 +40,7 @@ export default async function handler(req, res) {
       let tipo = "texto";
 
       if (audioDataUrl) {
-        const fileId = await uploadToDrive(audioDataUrl, `audio_${Date.now()}.webm`);
-        texto = fileId;
+        texto = await uploadToDrive(audioDataUrl, "app_audios");
         tipo = "audio";
       }
 
@@ -58,11 +57,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ data_hora: now, remetente, mensagem: texto, eh_audio: tipo === "audio" });
     } catch (err) {
       console.error(err);
-      const msg = err.message || String(err);
-      if (msg.includes("storage quota")) {
-        return res.status(500).json({ error: "A pasta do Drive precisa ser um Shared Drive (Drive Compartilhado). Crie um em drive.google.com/drive/shared-drives e atualize o GOOGLE_DRIVE_FOLDER_ID." });
-      }
-      return res.status(500).json({ error: "Falha ao enviar: " + msg });
+      return res.status(500).json({ error: "Falha ao enviar: " + (err.message || String(err)) });
     }
   }
 

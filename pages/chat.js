@@ -95,7 +95,7 @@ export default function ChatPage() {
               <div className="msg-bubble">
                 <div className="msg-sender">{msg.remetente}</div>
                 {msg.eh_audio ? (
-                  <audio controls src={`/api/photo?id=${msg.mensagem}`} style={{ width: "100%" }} />
+                  <audio controls src={msg.mensagem} style={{ width: "100%" }} />
                 ) : (
                   <div>{msg.mensagem}</div>
                 )}

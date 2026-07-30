@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const fileId = await uploadToDrive(dataUrl, `nfe_${Date.now()}.jpg`);
+    const fileUrl = await uploadToDrive(dataUrl, "app_nfes");
 
     const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const values = [[
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       nfe.razao_social || "",
       nfe.nome_paciente || "",
       nfe.nome_vendedora || "",
-      fileId,
+      fileUrl,
       usuario || ""
     ]];
 
@@ -47,14 +47,10 @@ export default async function handler(req, res) {
       razao_social: nfe.razao_social || "",
       nome_paciente: nfe.nome_paciente || "",
       nome_vendedora: nfe.nome_vendedora || "",
-      foto_drive_id: fileId
+      foto_url: fileUrl
     });
   } catch (err) {
     console.error(err);
-    const msg = err.message || String(err);
-    if (msg.includes("storage quota")) {
-      return res.status(500).json({ error: "A pasta do Drive precisa ser um Shared Drive (Drive Compartilhado). Crie um em drive.google.com/drive/shared-drives e atualize o GOOGLE_DRIVE_FOLDER_ID." });
-    }
-    return res.status(500).json({ error: "Falha ao salvar: " + msg });
+    return res.status(500).json({ error: "Falha ao salvar: " + (err.message || String(err)) });
   }
 }
