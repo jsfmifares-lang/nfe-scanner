@@ -230,16 +230,17 @@ export default function AppPage() {
                 </div>
                 <div className="capture-actions">
                   <button className="btn-cancel" onClick={() => { setMode("idle"); setNfe(null); setCapturedUrl(null); }}>✕ Cancelar</button>
-                  {erro ? (
-                    <button className="btn-primary" onClick={() => extractNfeData(capturedUrl)} disabled={saving}>
-                      {saving ? "Tentando..." : "🔄 Tentar IA novamente"}
-                    </button>
-                  ) : (
-                    <button className="btn-primary" onClick={confirmSave} disabled={saving}>
-                      {saving ? "Salvando..." : "✓ Salvar"}
-                    </button>
-                  )}
+                  <button className="btn-primary" onClick={confirmSave} disabled={saving}>
+                    {saving ? "Salvando..." : "✓ Salvar"}
+                  </button>
                 </div>
+                {erro && (
+                  <div className="capture-actions" style={{ marginTop: 8 }}>
+                    <button className="btn-secondary" onClick={() => extractNfeData(capturedUrl)} disabled={saving}>
+                      🔄 Tentar IA novamente
+                    </button>
+                  </div>
+                )}
               </>
             ) : null}
           </div>
