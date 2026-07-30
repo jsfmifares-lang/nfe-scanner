@@ -8,6 +8,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [erro, setErro] = useState("");
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const bottomRef = useRef(null);
@@ -34,26 +36,34 @@ export default function ChatPage() {
 
   async function sendText() {
     const t = text.trim();
-    if (!t || !user) return;
+    if (!t || !user || sending) return;
     setText("");
+    setSending(true);
+    setErro("");
     try {
-      await fetch("/api/chat/messages", {
+      const res = await fetch("/api/chat/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remetente: user.usuario, mensagem: t })
       });
-    } catch {}
+      if (!res.ok) setErro("Falha ao enviar mensagem");
+    } catch { setErro("Erro de conexão"); }
+    setSending(false);
   }
 
   async function sendAudio(dataUrl) {
-    if (!user) return;
+    if (!user || sending) return;
+    setSending(true);
+    setErro("");
     try {
-      await fetch("/api/chat/messages", {
+      const res = await fetch("/api/chat/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remetente: user.usuario, mensagem: "", audioDataUrl: dataUrl })
       });
-    } catch {}
+      if (!res.ok) setErro("Falha ao enviar áudio");
+    } catch { setErro("Erro de conexão"); }
+    setSending(false);
   }
 
   function startRecording() {
@@ -106,6 +116,7 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
+        {erro && <div className="error-msg" style={{ margin: "8px 12px 0" }}>{erro}</div>}
         <div className="chat-input-row">
           <input
             type="text"
@@ -115,11 +126,21 @@ export default function ChatPage() {
             onKeyDown={(e) => e.key === "Enter" && sendText()}
           />
           <button
+            className="round-btn"
+            onClick={sendText}
+            disabled={sending}
+            title="Enviar"
+            style={{ background: sending ? "#999" : "#1e8e5a" }}
+          >
+            ➤
+          </button>
+          <button
             className={`round-btn ${recording ? "recording" : ""}`}
             onMouseDown={startRecording}
             onMouseUp={stopRecording}
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
+            disabled={sending}
             title={recording ? "Solte para enviar" : "Segure para gravar áudio"}
           >
             {recording ? "🔴" : "🎤"}
