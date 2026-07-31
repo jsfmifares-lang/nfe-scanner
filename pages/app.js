@@ -103,20 +103,14 @@ export default function AppPage() {
     setExtracting(true);
     setErro("");
     try {
-      const res = await fetch("/api/extract-nfe", {
+      const res = await fetch("/api/test-gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageDataUrl: dataUrl })
       });
       const data = await res.json();
-      if (data._debug) setErro("DEBUG: " + data._debug);
-      if (res.ok || data._debug) {
-        setNfe(data);
-        setErro(data._debug ? "DEBUG: " + data._debug : "");
-      } else {
-        setErro(data.error || "");
-        setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
-      }
+      setErro("TESTE: " + JSON.stringify(data).slice(0, 600));
+      setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
     } catch {
       setErro("Falha de comunicação com o servidor de IA.");
       setNfe({ numero_nfe: "", razao_social: "", nome_paciente: "", nome_vendedora: "" });
