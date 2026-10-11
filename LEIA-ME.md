@@ -4,7 +4,11 @@ App web (Next.js + Google Sheets via Apps Script), feito a partir da tela de exe
 Roda na Vercel e no celular (PWA).
 
 ## Campos (iguais aos da imagem)
-- Código de barras (bipa e preenche a Nota sozinho quando o código tem 44 dígitos)
+- Código de barras (bipa e a Nota é extraída sozinha quando o código tem 44 dígitos)
+- Escolha: NOTA / VALE
+- Nota * (obrigatória) — ao identificar a Nota, o app busca sozinho na aba `Colado`:
+  `Cliente/Hospital` (coluna B) e `Paciente` (coluna C) são preenchidos automaticamente
+  (o que você digitar à mão nunca é apagado pela busca)
 - Escolha: NOTA / VALE
 - Nota * (obrigatória)
 - Cliente/Hospital (obrigatório)

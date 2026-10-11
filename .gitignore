@@ -7,3 +7,5 @@ public/fallback-*.js
 
 # subprojetos independentes (GitHub/deploy próprio)
 hospital-delivery-control/
+
+.vercel

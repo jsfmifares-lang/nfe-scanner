@@ -33,6 +33,8 @@ function doGet(e) {
       result = editarProtocolo(e.parameter);
     } else if (action === 'excluir') {
       result = excluirProtocolo(e.parameter);
+    } else if (action === 'buscar') {
+      result = buscarColado(e.parameter);
     } else {
       result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
     }
@@ -213,4 +215,52 @@ function excluirProtocolo(d) {
   }
 }
 
+// ---- Busca Cliente/Hospital (col B) e Paciente (col C) na aba "Colado" ----
+// Procura a linha cujo número do documento bate com o informado, comparando
+// de forma flexível: aceita número puro, com zeros à esquerda, chave de
+// acesso de 44 dígitos ou URL de QR (?p=...), em qualquer coluna da linha.
+function numeroDeCelulaGas(v) {
+  var d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (!d) return '';
+  if (d.length === 44) {
+    var n = parseInt(d.slice(25, 34), 10);
+    return n ? String(n) : '';
+  }
+  var m44 = String(v == null ? '' : v).replace(/\s/g, '').match(/(\d{44})/);
+  if (m44) return numeroDeCelulaGas(m44[1]);
+  return d.replace(/^0+/, '');
+}
+
+function buscarColado(d) {
+  var numero = numeroDeCelulaGas(d && (d.numero_doc || d.numero || d.nota));
+  if (!numero) return { success: false, mensagem: 'Informe o número do documento' };
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var aba = ss.getSheetByName('Colado');
+  if (!aba) return { success: false, mensagem: 'Aba "Colado" não encontrada na planilha' };
+  var last = aba.getLastRow();
+  if (last < 1) return { success: false, mensagem: 'Aba "Colado" vazia' };
+  var lastCol = Math.max(aba.getLastColumn(), 3);
+  var vals = aba.getRange(1, 1, last, lastCol).getValues();
+  var inicio = 0;
+  if (vals.length && !/\d/.test(String(vals[0][0] == null ? '' : vals[0][0]))) inicio = 1; // pula cabeçalho
+  var total = 0;
+  for (var i = inicio; i < vals.length; i++) {
+    var r = vals[i];
+    if (!r[0] && !r[1] && !r[2]) continue;
+    total++;
+    var achou = false;
+    for (var c = 0; c < r.length; c++) {
+      if (numeroDeCelulaGas(r[c]) === numero) { achou = true; break; }
+    }
+    if (achou) {
+      return {
+        success: true,
+        numero_doc: numero,
+        cliente_hospital: String(r[1] == null ? '' : r[1]).trim(),
+        paciente: String(r[2] == null ? '' : r[2]).trim(),
+        linha: i + 1
+      };
+    }
+  }
+  return { success: false, mensagem: 'Doc. ' + numero + ' não encontrado na aba "Colado" (' + total + ' linha(s) verificadas)' };
 }

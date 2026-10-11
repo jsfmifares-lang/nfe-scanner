@@ -68,8 +68,12 @@ export default function Home() {
   const [msgErro, setMsgErro] = useState(false);
   const [gasUrl, setGasUrl] = useState("");
   const [showConfig, setShowConfig] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [infoColado, setInfoColado] = useState("");
 
   const barcodeRef = useRef(null);
+  const lastAuto = useRef({ cliente: "", paciente: "" });
+  const buscaTimer = useRef(null);
 
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
@@ -110,6 +114,7 @@ export default function Home() {
     setForm((f) => {
       const nf = { ...f, [campo]: valor };
       // Se bipou código de 44 dígitos e Nota vazia, preenche sozinho
+      // (a busca na aba Colado dispara sozinha pelo efeito abaixo)
       if (campo === "codigo_barras" && !f.numero_doc) {
         const n = extrairNumeroDoc(valor);
         if (n) nf.numero_doc = n;
@@ -117,6 +122,50 @@ export default function Home() {
       return nf;
     });
   }
+
+  async function buscarNaColado(numero) {
+    const num = String(numero || "").trim();
+    if (!num || !gasUrl.includes("/exec")) return;
+    setBuscando(true);
+    try {
+      const data = await gasGet(gasUrl.trim(), { action: "buscar", numero_doc: num });
+      const cli = String(data.cliente_hospital || "");
+      const pacRaw = String(data.paciente || "");
+      const pac = pacRaw === "N/D" ? "" : pacRaw;
+      setForm((f) => {
+        const nf = { ...f };
+        // Só preenche o que está vazio ou o que foi preenchido pela busca anterior
+        // (nunca apaga o que o usuário digitou à mão)
+        if (!f.cliente_hospital.trim() || f.cliente_hospital === lastAuto.current.cliente) {
+          nf.cliente_hospital = cli || f.cliente_hospital;
+        }
+        if (!f.paciente.trim() || f.paciente === lastAuto.current.paciente) {
+          nf.paciente = pac || f.paciente;
+        }
+        return nf;
+      });
+      lastAuto.current = { cliente: cli, paciente: pac };
+      setInfoColado("✓ Cliente e Paciente puxados da aba Colado");
+    } catch (e) {
+      setInfoColado(String(e.message || "Não encontrado na aba Colado"));
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  useEffect(() => {
+    if (buscaTimer.current) clearTimeout(buscaTimer.current);
+    const num = form.numero_doc.trim();
+    if (!num) {
+      setInfoColado("");
+      return;
+    }
+    buscaTimer.current = setTimeout(() => buscarNaColado(num), 600);
+    return () => {
+      if (buscaTimer.current) clearTimeout(buscaTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.numero_doc]);
 
   function validar() {
     if (!form.numero_doc.trim()) return "Campo Nota é obrigatório *";
@@ -171,6 +220,8 @@ export default function Home() {
       setMsgErro(false);
       setForm(vazio);
       setEditId(null);
+      lastAuto.current = { cliente: "", paciente: "" };
+      setInfoColado("");
       await carregar(base);
       barcodeRef.current?.focus();
     } catch (err) {
@@ -183,6 +234,8 @@ export default function Home() {
 
   function editar(item) {
     setEditId(item.id);
+    lastAuto.current = { cliente: "", paciente: "" };
+    setInfoColado("");
     setForm({
       codigo_barras: item.codigo_barras || "",
       tipo_doc: item.tipo_doc || "NOTA",
@@ -199,6 +252,8 @@ export default function Home() {
   function cancelarEdicao() {
     setEditId(null);
     setForm(vazio);
+    lastAuto.current = { cliente: "", paciente: "" };
+    setInfoColado("");
   }
 
   async function excluir(item) {
@@ -354,6 +409,12 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {(buscando || infoColado) && form.numero_doc.trim() ? (
+          <div className={infoColado.startsWith("✓") ? "mentor-colado-ok" : "mentor-colado-info"}>
+            {buscando ? "🔎 Buscando doc. na aba Colado..." : infoColado}
+          </div>
+        ) : null}
 
         <div className="f-row">
           <div className="f-col mid">
