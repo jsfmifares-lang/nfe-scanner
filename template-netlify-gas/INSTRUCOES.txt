@@ -1,0 +1,30 @@
+# Template: Netlify + Google Apps Script + Google Sheets
+
+## Como usar este template
+
+### 1. Planilha Google Sheets
+- Crie uma nova planilha
+- Copie o ID da URL (entre /d/ e /edit)
+- As abas serao criadas automaticamente pelo Code.gs
+
+### 2. Google Apps Script
+- Acesse script.google.com → Novo projeto
+- Cole o conteudo de Code.gs (troque o SPREADSHEET_ID)
+- Deploy → Nova implantacao → Quem pode acessar: Qualquer pessoa
+- Copie a URL do deploy
+
+### 3. Frontend (index.html)
+- Crie o index.html com o frontend do seu projeto
+- Defina a URL do GAS: window.GAS_API_URL = 'URL_DO_SEU_GAS';
+- Todas as chamadas usam GET: gasGet({ action: 'nomeAction', ...parametros })
+
+### 4. Deploy no Netlify
+- Crie o site no Netlify (pelo painel web)
+- Pegue o Site ID (URL do site ou API)
+- Cole o Site ID no deploy.ps1
+- Execute: powershell -ExecutionPolicy Bypass -File deploy.ps1
+
+### Acoes disponiveis no backend (action):
+- buscarMaterial / listarMateriais / salvarMaterial / atualizarCadastroMaterial / excluirCadastroMaterial
+- salvarCadastro / listarCadastros / atualizarCadastro / excluirCadastro (genérico para Hospital, Convenio, Medico, etc)
+- salvarPedido / listarPedidos

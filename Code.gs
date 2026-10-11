@@ -1,0 +1,216 @@
+/*
+ * Protocolo Mentor — Backend (Google Apps Script)
+ *
+ * COMO CONFIGURAR (2 min):
+ *   1. Abra a planilha (mesma já usada ou uma nova).
+ *   2. Menu Extensões -> Apps Script.
+ *   3. Apague tudo e cole TODO este arquivo.
+ *   4. Clique em "Fazer deploy" -> "Novo deploy" -> tipo "Aplicativo da web".
+ *      - Executar como: Eu
+ *      - Quem tem acesso: Qualquer pessoa
+ *   5. Copie a URL do aplicativo (termina com /exec).
+ *   6. Cole no app (campo "URL do GAS" ou na Vercel como NEXT_PUBLIC_GAS_URL).
+ *
+ * A aba "Protocolo" é criada sozinha com o cabeçalho:
+ *   id | data_protocolo | codigo_barras | tipo_doc | numero_doc | cliente_hospital | paciente | tipo_devolucao | observacao | status | usuario
+ */
+
+var SPREADSHEET_ID = '10pq8D-YI--QTtdNORlfZoAXDPrIxNEX2T_SnR2jRIKk';
+var ABA = 'Protocolo';
+var HEADER = ['id', 'data_protocolo', 'codigo_barras', 'tipo_doc', 'numero_doc', 'cliente_hospital', 'paciente', 'tipo_devolucao', 'observacao', 'status', 'usuario'];
+
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || '';
+  var result;
+  try {
+    if (action === 'ping') {
+      result = { success: true, mensagem: 'Protocolo Mentor online' };
+    } else if (action === 'listar') {
+      result = { success: true, dados: listarProtocolo() };
+    } else if (action === 'salvar') {
+      result = salvarProtocolo(e.parameter);
+    } else if (action === 'editar') {
+      result = editarProtocolo(e.parameter);
+    } else if (action === 'excluir') {
+      result = excluirProtocolo(e.parameter);
+    } else {
+      result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
+    }
+  } catch (err) {
+    result = { success: false, mensagem: err.toString() };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  // Aceita tanto querystring quanto JSON no body
+  if (e && e.postData && e.postData.contents) {
+    try {
+      var body = JSON.parse(e.postData.contents);
+      if (body && body.action) {
+        var params = {};
+        for (var k in body) params[k] = body[k];
+        // reutiliza o roteamento do doGet
+        var fake = { parameter: params };
+        return doGet(fake);
+      }
+    } catch (err) { /* cai para doGet normal */ }
+  }
+  return doGet(e);
+}
+
+function getAba() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var aba = ss.getSheetByName(ABA);
+  if (!aba) {
+    aba = ss.insertSheet(ABA);
+    aba.appendRow(HEADER);
+    aba.setFrozenRows(1);
+  } else {
+    // garante cabeçalho correto na 1ª linha
+    var primeira = aba.getRange(1, 1, 1, HEADER.length).getValues()[0];
+    if (String(primeira[0] || '').toLowerCase() !== 'id') {
+      aba.insertRowBefore(1);
+      aba.getRange(1, 1, 1, HEADER.length).setValues([HEADER]);
+    }
+  }
+  return aba;
+}
+
+function linhasParaObjetos() {
+  var aba = getAba();
+  var last = aba.getLastRow();
+  if (last < 2) return [];
+  var vals = aba.getRange(2, 1, last - 1, HEADER.length).getValues();
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var r = vals[i];
+    if (!r[0] && !r[4] && !r[5]) continue; // pula linhas vazias
+    var dt = r[1];
+    if (Object.prototype.toString.call(dt) === '[object Date]') {
+      dt = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    } else {
+      dt = String(dt || '');
+    }
+    out.push({
+      id: String(r[0] || ''),
+      data_protocolo: dt,
+      codigo_barras: String(r[2] || ''),
+      tipo_doc: String(r[3] || ''),
+      numero_doc: String(r[4] || ''),
+      cliente_hospital: String(r[5] || ''),
+      paciente: String(r[6] || ''),
+      tipo_devolucao: String(r[7] || ''),
+      observacao: String(r[8] || ''),
+      status: String(r[9] || ''),
+      usuario: String(r[10] || ''),
+      _linha: i + 2
+    });
+  }
+  // mais recentes primeiro
+  out.reverse();
+  return out;
+}
+
+function listarProtocolo() {
+  return linhasParaObjetos();
+}
+
+function novoId() {
+  return 'P' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMddHHmmss') + Math.floor(Math.random() * 900 + 100);
+}
+
+function salvarProtocolo(d) {
+  var numero = String((d && (d.numero_doc || d.numero || d.nota)) || '').trim();
+  var cliente = String((d && (d.cliente_hospital || d.cliente)) || '').trim();
+  if (!numero) return { success: false, mensagem: 'Campo Nota é obrigatório' };
+  if (!cliente) return { success: false, mensagem: 'Campo Cliente/Hospital é obrigatório' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAba();
+    var id = novoId();
+    var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    var linha = [
+      id,
+      agora,
+      String((d && (d.codigo_barras || d.codigo)) || '').trim(),
+      String((d && (d.tipo_doc || d.escolha)) || 'NOTA').trim() || 'NOTA',
+      numero,
+      cliente,
+      String((d && d.paciente) || '').trim() || 'N/D',
+      String((d && d.tipo_devolucao) || '').trim(),
+      String((d && d.observacao) || '').trim(),
+      String((d && d.status) || 'AGUARDANDO CONFIRMAÇÃO DA MENTOR!').trim(),
+      String((d && d.usuario) || '').trim()
+    ];
+    aba.appendRow(linha);
+    try { aba.getRange(aba.getLastRow(), 2).setNumberFormat('dd/MM/yyyy'); } catch (e2) {}
+    return { success: true, mensagem: 'Protocolo salvo', id: id, data_protocolo: agora };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function editarProtocolo(d) {
+  var id = String((d && d.id) || '').trim();
+  if (!id) return { success: false, mensagem: 'ID é obrigatório para editar' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAba();
+    var last = aba.getLastRow();
+    if (last < 2) return { success: false, mensagem: 'Registro não encontrado' };
+    var vals = aba.getRange(2, 1, last - 1, HEADER.length).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]) === id) {
+        var row = i + 2;
+        var atual = vals[i];
+        // mantém data_protocolo e id; atualiza o resto se enviado
+        var novo = [
+          id,
+          atual[1],
+          d.codigo_barras !== undefined ? String(d.codigo_barras).trim() : atual[2],
+          d.tipo_doc !== undefined ? String(d.tipo_doc).trim() : (d.escolha !== undefined ? String(d.escolha).trim() : atual[3]),
+          d.numero_doc !== undefined ? String(d.numero_doc).trim() : (d.numero !== undefined ? String(d.numero).trim() : atual[4]),
+          d.cliente_hospital !== undefined ? String(d.cliente_hospital).trim() : atual[5],
+          d.paciente !== undefined ? String(d.paciente).trim() : atual[6],
+          d.tipo_devolucao !== undefined ? String(d.tipo_devolucao).trim() : atual[7],
+          d.observacao !== undefined ? String(d.observacao).trim() : atual[8],
+          d.status !== undefined ? String(d.status).trim() : atual[9],
+          d.usuario !== undefined ? String(d.usuario).trim() : atual[10]
+        ];
+        aba.getRange(row, 1, 1, HEADER.length).setValues([novo]);
+        return { success: true, mensagem: 'Protocolo atualizado' };
+      }
+    }
+    return { success: false, mensagem: 'Registro não encontrado: ' + id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function excluirProtocolo(d) {
+  var id = String((d && d.id) || '').trim();
+  if (!id) return { success: false, mensagem: 'ID é obrigatório para excluir' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAba();
+    var last = aba.getLastRow();
+    var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]) === id) {
+        aba.deleteRow(i + 2);
+        return { success: true, mensagem: 'Protocolo excluído' };
+      }
+    }
+    return { success: false, mensagem: 'Registro não encontrado: ' + id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+}

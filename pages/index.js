@@ -1,11 +1,442 @@
-import { useEffect } from "react";
-import { useRouter } from "next/router";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const TIPO_DOC_OPTS = ["NOTA", "VALE"];
+const TIPO_DEVOLUCAO_OPTS = [
+  "",
+  "VENDA DIRETA",
+  "CONSIGNAÇÃO",
+  "DEVOLUÇÃO TOTAL",
+  "DEVOLUÇÃO PARCIAL",
+  "VALE / REMESSA",
+  "OUTROS",
+];
+const STATUS_PADRAO = "AGUARDANDO CONFIRMAÇÃO DA MENTOR!";
+
+function extrairNumeroDoc(codigoBarras) {
+  if (!codigoBarras) return "";
+  let s = String(codigoBarras).trim();
+  const mParam = s.match(/[?&]p=(\d{44})/i);
+  if (mParam) s = mParam[1];
+  const dig = s.replace(/\D/g, "");
+  if (dig.length === 44) {
+    const n = parseInt(dig.slice(25, 34), 10);
+    return n ? String(n) : "";
+  }
+  const m44 = String(codigoBarras).replace(/\s/g, "").match(/(\d{44})/);
+  if (m44) return extrairNumeroDoc(m44[1]);
+  return "";
+}
+
+function gasGet(base, params) {
+  const qs = new URLSearchParams(params).toString();
+  return fetch(`${base}?${qs}`).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    if (!data || data.success === false) throw new Error(data.mensagem || "Falha no GAS");
+    return data;
+  });
+}
+
+function formatarData(v) {
+  if (!v) return "";
+  const s = String(v);
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toLocaleDateString("pt-BR");
+  return s;
+}
+
+const vazio = {
+  codigo_barras: "",
+  tipo_doc: "NOTA",
+  numero_doc: "",
+  cliente_hospital: "",
+  paciente: "",
+  tipo_devolucao: "",
+  observacao: "",
+};
 
 export default function Home() {
-  const router = useRouter();
+  const [form, setForm] = useState(vazio);
+  const [lista, setLista] = useState([]);
+  const [busca, setBusca] = useState("");
+  const [usuario, setUsuario] = useState("Serafim");
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState("");
+  const [msgErro, setMsgErro] = useState(false);
+  const [gasUrl, setGasUrl] = useState("");
+  const [showConfig, setShowConfig] = useState(false);
+
+  const barcodeRef = useRef(null);
+
   useEffect(() => {
-    const raw = typeof window !== "undefined" ? localStorage.getItem("nfe_user") : null;
-    router.replace(raw ? "/app" : "/login");
-  }, [router]);
-  return null;
+    const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
+    const envUrl = process.env.NEXT_PUBLIC_GAS_URL || "";
+    const inicial = salvo || envUrl;
+    if (inicial) setGasUrl(inicial);
+    else setShowConfig(true);
+    const u = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
+    if (u) setUsuario(u);
+  }, []);
+
+  useEffect(() => {
+    if (gasUrl && gasUrl.includes("/exec")) carregar(gasUrl);
+    else setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gasUrl]);
+
+  useEffect(() => {
+    barcodeRef.current?.focus();
+  }, []);
+
+  async function carregar(url) {
+    const base = (url || gasUrl).trim();
+    if (!base) return;
+    setLoading(true);
+    try {
+      const data = await gasGet(base, { action: "listar" });
+      setLista(Array.isArray(data.dados) ? data.dados : []);
+    } catch (e) {
+      setMsg("Erro ao carregar: " + e.message);
+      setMsgErro(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function set(campo, valor) {
+    setForm((f) => {
+      const nf = { ...f, [campo]: valor };
+      // Se bipou código de 44 dígitos e Nota vazia, preenche sozinho
+      if (campo === "codigo_barras" && !f.numero_doc) {
+        const n = extrairNumeroDoc(valor);
+        if (n) nf.numero_doc = n;
+      }
+      return nf;
+    });
+  }
+
+  function validar() {
+    if (!form.numero_doc.trim()) return "Campo Nota é obrigatório *";
+    if (!form.cliente_hospital.trim()) return "Campo Cliente/Hospital é obrigatório";
+    if (!gasUrl.includes("/exec")) return "Configure a URL do GAS primeiro";
+    return "";
+  }
+
+  async function salvar(e) {
+    if (e) e.preventDefault();
+    setMsg("");
+    setMsgErro(false);
+    const erro = validar();
+    if (erro) {
+      setMsg(erro);
+      setMsgErro(true);
+      return;
+    }
+    setSaving(true);
+    try {
+      const base = gasUrl.trim();
+      if (editId) {
+        await gasGet(base, {
+          action: "editar",
+          id: editId,
+          codigo_barras: form.codigo_barras.trim(),
+          tipo_doc: form.tipo_doc,
+          numero_doc: form.numero_doc.trim(),
+          cliente_hospital: form.cliente_hospital.trim(),
+          paciente: form.paciente.trim() || "N/D",
+          tipo_devolucao: form.tipo_devolucao,
+          observacao: form.observacao.trim(),
+          usuario: usuario.trim(),
+        });
+        setMsg("Protocolo atualizado ✓");
+      } else {
+        await gasGet(base, {
+          action: "salvar",
+          codigo_barras: form.codigo_barras.trim(),
+          escolha: form.tipo_doc,
+          tipo_doc: form.tipo_doc,
+          numero_doc: form.numero_doc.trim(),
+          cliente_hospital: form.cliente_hospital.trim(),
+          paciente: form.paciente.trim() || "N/D",
+          tipo_devolucao: form.tipo_devolucao,
+          observacao: form.observacao.trim(),
+          status: STATUS_PADRAO,
+          usuario: usuario.trim(),
+        });
+        setMsg(`Doc. ${form.numero_doc.trim()} protocolado ✓`);
+      }
+      setMsgErro(false);
+      setForm(vazio);
+      setEditId(null);
+      await carregar(base);
+      barcodeRef.current?.focus();
+    } catch (err) {
+      setMsg("Erro ao salvar: " + (err.message || String(err)));
+      setMsgErro(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function editar(item) {
+    setEditId(item.id);
+    setForm({
+      codigo_barras: item.codigo_barras || "",
+      tipo_doc: item.tipo_doc || "NOTA",
+      numero_doc: item.numero_doc || "",
+      cliente_hospital: item.cliente_hospital || "",
+      paciente: item.paciente === "N/D" ? "" : item.paciente || "",
+      tipo_devolucao: item.tipo_devolucao || "",
+      observacao: item.observacao || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    barcodeRef.current?.focus();
+  }
+
+  function cancelarEdicao() {
+    setEditId(null);
+    setForm(vazio);
+  }
+
+  async function excluir(item) {
+    if (!confirm(`Excluir doc. ${item.numero_doc} (${item.cliente_hospital})?`)) return;
+    try {
+      await gasGet(gasUrl.trim(), { action: "excluir", id: item.id });
+      setMsg("Protocolo excluído");
+      setMsgErro(false);
+      await carregar(gasUrl);
+    } catch (err) {
+      setMsg("Erro ao excluir: " + err.message);
+      setMsgErro(true);
+    }
+  }
+
+  function salvarGasUrl() {
+    const url = gasUrl.trim();
+    localStorage.setItem("mentor_gas_url", url);
+    localStorage.setItem("mentor_usuario", usuario.trim());
+    setShowConfig(false);
+    if (url.includes("/exec")) carregar(url);
+  }
+
+  const filtrada = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter((r) =>
+      [r.numero_doc, r.cliente_hospital, r.paciente, r.observacao, r.status, r.tipo_doc]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [lista, busca]);
+
+  function onBarcodeKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      salvar();
+    }
+  }
+
+  return (
+    <div className="mentor-page">
+      {/* TOPO */}
+      <header className="mentor-topo">
+        <div className="mentor-topo-left">
+          <div className="mentor-logo">✉</div>
+          <span className="mentor-titulo">Protocolo Mentor</span>
+        </div>
+        <div className="mentor-topo-right">
+          <div className="mentor-busca">
+            <span>🔍</span>
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Pesquisar"
+              aria-label="Pesquisar"
+            />
+          </div>
+          <div className="mentor-user" title="Usuário do protocolo">
+            <span>👤</span>
+            <input
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              onBlur={salvarGasUrl}
+              aria-label="Usuário"
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* SUBTITULO */}
+      <div className="mentor-sub">
+        <span>{editId ? "Editar protocolo" : "Protocolar nota remessa/vale"}</span>
+        <span className="mentor-count">{filtrada.length} registro(s)</span>
+      </div>
+
+      {/* CONFIG GAS */}
+      {showConfig || !gasUrl.includes("/exec") ? (
+        <div className="mentor-config">
+          <label>URL do GAS (colar 1 vez só)</label>
+          <div className="mentor-config-row">
+            <input
+              type="text"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              value={gasUrl}
+              onChange={(e) => setGasUrl(e.target.value)}
+            />
+            <button type="button" onClick={salvarGasUrl}>Salvar</button>
+          </div>
+          <small>
+            Apps Script da planilha → Deploy → Aplicativo da web → acesso “Qualquer pessoa”.
+            Ou defina <b>NEXT_PUBLIC_GAS_URL</b> na Vercel.
+          </small>
+        </div>
+      ) : null}
+
+      {/* FORM */}
+      <form className="mentor-form" onSubmit={salvar}>
+        <div className="f-row">
+          <div className="f-col full">
+            <label>Código de barras</label>
+            <input
+              ref={barcodeRef}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="Bipe ou digite e tecle ENTER"
+              value={form.codigo_barras}
+              onChange={(e) => set("codigo_barras", e.target.value)}
+              onKeyDown={onBarcodeKeyDown}
+            />
+          </div>
+        </div>
+
+        <div className="f-row">
+          <div className="f-col small">
+            <label>Escolha</label>
+            <select value={form.tipo_doc} onChange={(e) => set("tipo_doc", e.target.value)}>
+              {TIPO_DOC_OPTS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
+          <div className="f-col tiny">
+            <label>Nota <b className="req">*</b></label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="Nº"
+              value={form.numero_doc}
+              onChange={(e) => set("numero_doc", e.target.value)}
+              required
+            />
+          </div>
+          <div className="f-col grow">
+            <label>Cliente/Hospital</label>
+            <input
+              type="text"
+              placeholder="Nome do cliente ou hospital"
+              value={form.cliente_hospital}
+              onChange={(e) => set("cliente_hospital", e.target.value)}
+              required
+            />
+          </div>
+          <div className="f-col grow">
+            <label>Paciente</label>
+            <input
+              type="text"
+              placeholder="Nome do paciente"
+              value={form.paciente}
+              onChange={(e) => set("paciente", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="f-row">
+          <div className="f-col mid">
+            <label>Tipo devolução</label>
+            <select value={form.tipo_devolucao} onChange={(e) => set("tipo_devolucao", e.target.value)}>
+              {TIPO_DEVOLUCAO_OPTS.map((o, i) => (
+                <option key={i} value={o}>{o === "" ? "— selecione —" : o}</option>
+              ))}
+            </select>
+          </div>
+          <div className="f-col save">
+            <button type="submit" className="btn-salvar" disabled={saving}>
+              💾 {saving ? "Salvando..." : editId ? "Atualizar" : "Salvar"}
+            </button>
+            {editId && (
+              <button type="button" className="btn-cancelar" onClick={cancelarEdicao}>
+                Cancelar
+              </button>
+            )}
+          </div>
+          <div className="f-col grow">
+            <label>Observação</label>
+            <input
+              type="text"
+              placeholder="Observação (opcional)"
+              value={form.observacao}
+              onChange={(e) => set("observacao", e.target.value)}
+            />
+          </div>
+        </div>
+
+        {msg && <div className={msgErro ? "mentor-erro" : "mentor-ok"}>{msg}</div>}
+      </form>
+
+      {/* TABELA */}
+      <div className="mentor-tabela-wrap">
+        <table className="mentor-tabela">
+          <thead>
+            <tr>
+              <th style={{ width: 50 }}>Item</th>
+              <th style={{ width: 80 }}>Doc.</th>
+              <th>Hospital/Cliente</th>
+              <th>Paciente/Cliente</th>
+              <th style={{ width: 190 }}>Status</th>
+              <th style={{ width: 110 }}>Data protocolo</th>
+              <th>Observação</th>
+              <th style={{ width: 90 }}>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Carregando...</td></tr>
+            ) : filtrada.length === 0 ? (
+              <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Nenhum protocolo encontrado</td></tr>
+            ) : (
+              filtrada.map((r, i) => (
+                <tr key={r.id || i} className={editId === r.id ? "em-edicao" : ""}>
+                  <td className="c">{filtrada.length - i}</td>
+                  <td><b>{r.numero_doc}</b><div className="mini">{r.tipo_doc}</div></td>
+                  <td>{r.cliente_hospital}</td>
+                  <td>{r.paciente}</td>
+                  <td className="status">{r.status || STATUS_PADRAO}</td>
+                  <td className="c">{formatarData(r.data_protocolo)}</td>
+                  <td>{r.observacao}{r.tipo_devolucao ? ` (${r.tipo_devolucao})` : ""}</td>
+                  <td className="c acoes">
+                    <button title="Editar" onClick={() => editar(r)}>✏️</button>
+                    <button title="Excluir" onClick={() => excluir(r)}>🗑️</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <footer className="mentor-rodape">
+        <button className="link" onClick={() => setShowConfig((v) => !v)}>
+          ⚙️ {showConfig ? "Ocultar config." : "Config. GAS / usuário"}
+        </button>
+        <button className="link" onClick={() => gasUrl.includes("/exec") && carregar(gasUrl)}>
+          ↻ Atualizar lista
+        </button>
+      </footer>
+    </div>
+  );
 }

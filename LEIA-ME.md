@@ -1,42 +1,42 @@
-# NFe Scanner — instruções
+# Protocolo Mentor — protocolar notas, vales e remessas do almoxarifado
 
-## 1. Variáveis de ambiente necessárias na Vercel
+App web (Next.js + Google Sheets via Apps Script), feito a partir da tela de exemplo.
+Roda na Vercel e no celular (PWA).
 
-Vá em **Settings → Environment Variables** no seu projeto da Vercel e confirme que
-estas variáveis existem (marcadas para Production, Preview e Development):
+## Campos (iguais aos da imagem)
+- Código de barras (bipa e preenche a Nota sozinho quando o código tem 44 dígitos)
+- Escolha: NOTA / VALE
+- Nota * (obrigatória)
+- Cliente/Hospital (obrigatório)
+- Paciente
+- Tipo devolução: VENDA DIRETA, CONSIGNAÇÃO, DEVOLUÇÃO TOTAL, DEVOLUÇÃO PARCIAL, VALE / REMESSA, OUTROS
+- Observação
+- Tabela: Item | Doc. | Hospital/Cliente | Paciente/Cliente | Status | Data protocolo | Observação | Ação (editar/excluir)
+- Topo com Pesquisar + usuário
 
-- `GOOGLE_CLIENT_EMAIL` — e-mail da Service Account
-- `GOOGLE_PRIVATE_KEY` — chave privada da Service Account (com `-----BEGIN PRIVATE KEY-----`)
-- `GOOGLE_SPREADSHEET_ID` — ID da planilha do Google Sheets
-- `GOOGLE_DRIVE_FOLDER_ID` — ID da pasta do Google Drive (fotos e áudios)
-- `GEMINI_API_KEY` — chave da API do Gemini (gratuita)
+Status padrão ao salvar: `AGUARDANDO CONFIRMAÇÃO DA MENTOR!`
 
-## 2. Abas necessárias na planilha do Google Sheets
+A planilha recebe na aba `Protocolo`:
+`id | data_protocolo | codigo_barras | tipo_doc | numero_doc | cliente_hospital | paciente | tipo_devolucao | observacao | status | usuario` (criada sozinha).
 
-A planilha precisa ter estas 3 abas, com esses nomes exatos:
+## Configuração (1 vez só)
 
-- **usuarios** — colunas: `usuario_id | usuario | senha_hash`
-- **historico** — colunas: `data_hora | numero_nfe | razao_social | nome_paciente | nome_vendedora | foto_id | usuario_id`
-- **chat** — colunas: `data_hora | remetente | mensagem`
+### 1. Backend (Code.gs já pronto na raiz)
+1. Abra a planilha
+2. Menu **Extensões → Apps Script**
+3. Apague tudo e cole TODO o conteúdo do arquivo `Code.gs` desta pasta
+4. **Deploy → Gerenciar deploy → Nova versão** (ou Novo deploy → Aplicativo da web):
+   - Executar como: Eu
+   - Quem tem acesso: **Qualquer pessoa**
+5. Copie a URL (termina com `/exec`)
 
-Não precisa preencher nada manualmente — o app cria as linhas sozinho. Só confirme
-que as abas existem com esses nomes (a primeira linha pode ficar vazia ou com
-cabeçalhos, tanto faz).
+### 2. Frontend (Vercel)
+- Em **Settings → Environment Variables** crie `NEXT_PUBLIC_GAS_URL` com a URL e redeploy.
+- Ou abra o app e cole a URL no campo **Config. GAS** (fica salva no aparelho).
 
-## 3. Publicar
+### 3. Teste rápido
+- `URL?action=ping` → `{"success":true,"mensagem":"Protocolo Mentor online"}`
+- `URL?action=listar` → `{"success":true,"dados":[...]}`
 
-Basta arrastar esta pasta inteira para o painel da Vercel (Add New → Project →
-arraste a pasta). A Vercel detecta que é um projeto Next.js e instala tudo
-sozinha (não precisa rodar `npm install` no seu computador).
-
-## 4. PWA (instalar no celular)
-
-O app já é um PWA. Depois de publicado, ao acessar pelo celular (Chrome/Safari),
-vai aparecer a opção "Adicionar à tela inicial" / "Instalar app". Uma vez
-instalado, ele abre em tela cheia, com ícone próprio, como um app nativo.
-
-## 5. Como funciona a segurança das fotos
-
-As fotos e áudios ficam **privados** no Google Drive (não são públicos). O app
-busca a foto por trás das câmeras, através da rota `/api/photo`, autenticada
-pela Service Account — só aparece quando alguém clica no card.
+## Rodar local
+`npm install` → `npm run dev` (usa o `NEXT_PUBLIC_GAS_URL` do `.env.local`).

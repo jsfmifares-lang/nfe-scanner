@@ -4,3 +4,6 @@ node_modules
 .env*.local
 
 public/fallback-*.js
+
+# subprojetos independentes (GitHub/deploy próprio)
+hospital-delivery-control/
