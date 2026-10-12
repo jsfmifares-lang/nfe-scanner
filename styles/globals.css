@@ -107,10 +107,6 @@ body {
   border: 1px solid #999; background: #fff; border-radius: 5px;
   padding: 5px 12px; cursor: pointer;
 }
-.mentor-ok {
-  background: #dff5e6; color: #0d5c37; padding: 8px 10px;
-  border-radius: 4px; font-size: 14px; margin-top: 4px;
-}
 .mentor-colado-info { font-size: 12px; color: #666; margin: -4px 0 8px; }
 .mentor-erro {
   background: #fdecec; color: #b3261e; padding: 8px 10px;

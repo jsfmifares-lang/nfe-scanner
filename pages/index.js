@@ -444,7 +444,7 @@ export default function Home() {
           </div>
         </div>
 
-        {msg && <div className={msgErro ? "mentor-erro" : "mentor-ok"}>{msg}</div>}
+        {msg && msgErro ? <div className="mentor-erro">{msg}</div> : null}
       </form>
 
       {/* TABELA */}
