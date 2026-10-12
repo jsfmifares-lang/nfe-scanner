@@ -410,10 +410,8 @@ export default function Home() {
           </div>
         </div>
 
-        {(buscando || (infoColado && !infoColado.startsWith("✓"))) && form.numero_doc.trim() ? (
-          <div className="mentor-colado-info">
-            {buscando ? "🔎 Buscando doc. na aba Colado..." : infoColado}
-          </div>
+        {!buscando && infoColado && !infoColado.startsWith("✓") && form.numero_doc.trim() ? (
+          <div className="mentor-colado-info">{infoColado}</div>
         ) : null}
 
         <div className="f-row">
