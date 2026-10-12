@@ -2,6 +2,8 @@
 html, body {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  height: 100%;
+  overflow: hidden;
 }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body {
@@ -12,7 +14,8 @@ body {
 }
 
 /* ===== Protocolo Mentor ===== */
-.mentor-page { min-height: 100vh; padding-bottom: 30px; }
+.mentor-page { height: 100vh; height: 100dvh; padding-bottom: 8px; overflow: hidden; display: flex; flex-direction: column; }
+.mentor-topo, .mentor-sub, .mentor-form, .mentor-config, .mentor-rodape { flex-shrink: 0; }
 
 .mentor-topo {
   background: #2f5d8d;
@@ -118,7 +121,7 @@ body {
   border-radius: 4px; font-size: 14px; margin-top: 4px;
 }
 
-.mentor-tabela-wrap { margin: 8px 6px 0; overflow-x: auto; overflow-y: auto; max-height: 420px; border: 1px solid #bbb; }
+.mentor-tabela-wrap { margin: 8px 6px 0; overflow-x: auto; overflow-y: auto; flex: 1 1 auto; min-height: 0; border: 1px solid #bbb; }
 .mentor-tabela { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; min-width: 900px; }
 .mentor-tabela thead th {
   background: #d7d7d7; text-align: left; padding: 8px; font-style: italic;
