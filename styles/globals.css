@@ -113,11 +113,12 @@ body {
   border-radius: 4px; font-size: 14px; margin-top: 4px;
 }
 
-.mentor-tabela-wrap { margin: 8px 6px 0; overflow-x: auto; border: 1px solid #bbb; }
+.mentor-tabela-wrap { margin: 8px 6px 0; overflow-x: auto; overflow-y: auto; max-height: 420px; border: 1px solid #bbb; }
 .mentor-tabela { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; min-width: 900px; }
 .mentor-tabela thead th {
   background: #d7d7d7; text-align: left; padding: 8px; font-style: italic;
   border-bottom: 1px solid #bbb;
+  position: sticky; top: 0; z-index: 2;
 }
 .mentor-tabela tbody td { padding: 7px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
 .mentor-tabela tbody tr:nth-child(even) { background: #f2f2f2; }
