@@ -75,6 +75,7 @@ export default function Home() {
   const barcodeRef = useRef(null);
   const lastAuto = useRef({ cliente: "", paciente: "" });
   const buscaTimer = useRef(null);
+  const ultimaBusca = useRef({ numero: "", quando: 0 });
 
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
@@ -112,21 +113,30 @@ export default function Home() {
   }
 
   function set(campo, valor) {
+    let notaExtraida = "";
     setForm((f) => {
       const nf = { ...f, [campo]: valor };
       // Se bipou código de 44 dígitos e Nota vazia, preenche sozinho
-      // (a busca na aba Colado dispara sozinha pelo efeito abaixo)
       if (campo === "codigo_barras" && !f.numero_doc) {
         const n = extrairNumeroDoc(valor);
-        if (n) nf.numero_doc = n;
+        if (n) {
+          nf.numero_doc = n;
+          notaExtraida = n;
+        }
       }
       return nf;
     });
+    // Disparo imediato no bip (sem esperar o debounce da digitação)
+    if (notaExtraida) buscarNaColado(notaExtraida);
   }
 
   async function buscarNaColado(numero) {
     const num = String(numero || "").trim();
     if (!num || !gasUrl.includes("/exec")) return;
+    // Evita buscar repetida do mesmo número em sequência (bip + efeito)
+    const agora = Date.now();
+    if (ultimaBusca.current.numero === num && agora - ultimaBusca.current.quando < 8000) return;
+    ultimaBusca.current = { numero: num, quando: agora };
     setBuscando(true);
     try {
       const data = await gasGet(gasUrl.trim(), { action: "buscar", numero_doc: num });
@@ -161,7 +171,7 @@ export default function Home() {
       setInfoColado("");
       return;
     }
-    buscaTimer.current = setTimeout(() => buscarNaColado(num), 600);
+    buscaTimer.current = setTimeout(() => buscarNaColado(num), 300);
     return () => {
       if (buscaTimer.current) clearTimeout(buscaTimer.current);
     };

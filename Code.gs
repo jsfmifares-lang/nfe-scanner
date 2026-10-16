@@ -239,8 +239,25 @@ function buscarColado(d) {
   if (!aba) return { success: false, mensagem: 'Aba "Colado" não encontrada na planilha' };
   var last = aba.getLastRow();
   if (last < 1) return { success: false, mensagem: 'Aba "Colado" vazia' };
-  var lastCol = Math.max(aba.getLastColumn(), 3);
-  var vals = aba.getRange(1, 1, last, lastCol).getValues();
+  // 1) Caminho rápido: procura exata na coluna A (resolve no servidor, sem trazer a planilha toda).
+  //    Cobre o caso comum (número puro na col A). O resto cai na varredura flexível abaixo.
+  try {
+    var achou = aba.getRange(1, 1, last, 1).createTextFinder(numero).matchEntireCell(true).findNext();
+    if (achou) {
+      var lin = achou.getRow();
+      var bc = aba.getRange(lin, 2, 1, 2).getValues()[0];
+      return {
+        success: true,
+        numero_doc: numero,
+        cliente_hospital: String(bc[0] == null ? '' : bc[0]).trim(),
+        paciente: String(bc[1] == null ? '' : bc[1]).trim(),
+        linha: lin
+      };
+    }
+  } catch (e1) {}
+  // 2) Varredura flexível: aceita zeros à esquerda, chave de 44 dígitos ou URL de QR,
+  //    em qualquer coluna da linha. Lê só A:C para ser mais rápido.
+  var vals = aba.getRange(1, 1, last, 3).getValues();
   var inicio = 0;
   if (vals.length && !/\d/.test(String(vals[0][0] == null ? '' : vals[0][0]))) inicio = 1; // pula cabeçalho
   var total = 0;
