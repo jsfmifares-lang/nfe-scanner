@@ -47,6 +47,18 @@ function formatarData(v) {
   return s;
 }
 
+// Normaliza número para a chave do mapa local (igual ao GAS: 44 dígitos,
+// zeros à esquerda e QR viram o número puro)
+function chaveMapa(v) {
+  const d = String(v == null ? "" : v).replace(/\D/g, "");
+  if (!d) return "";
+  if (d.length === 44) {
+    const n = parseInt(d.slice(25, 34), 10);
+    return n ? String(n) : "";
+  }
+  return d.replace(/^0+/, "") || "";
+}
+
 const vazio = {
   codigo_barras: "",
   tipo_doc: "NOTA",
@@ -76,6 +88,8 @@ export default function Home() {
   const lastAuto = useRef({ cliente: "", paciente: "" });
   const buscaTimer = useRef(null);
   const ultimaBusca = useRef({ numero: "", quando: 0 });
+  const mapaColado = useRef({}); // numero -> {cliente, paciente} (lookup instantâneo)
+  const mapaTimer = useRef(null);
 
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
@@ -88,8 +102,16 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (gasUrl && gasUrl.includes("/exec")) carregar(gasUrl);
-    else setLoading(false);
+    if (gasUrl && gasUrl.includes("/exec")) {
+      carregar(gasUrl);
+      carregarMapa(gasUrl);
+      // Atualiza a base silenciosamente a cada 10 min (planilha pode mudar no dia)
+      if (mapaTimer.current) clearInterval(mapaTimer.current);
+      mapaTimer.current = setInterval(() => carregarMapa(gasUrl), 10 * 60 * 1000);
+    } else setLoading(false);
+    return () => {
+      if (mapaTimer.current) clearInterval(mapaTimer.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gasUrl]);
 
@@ -130,9 +152,54 @@ export default function Home() {
     if (notaExtraida) buscarNaColado(notaExtraida);
   }
 
+  // Baixa a base Colado 1x (em 2º plano) para lookup instantâneo local.
+  // Se a ação ainda não existir no GAS, ignora e segue com a busca por nota.
+  async function carregarMapa(url) {
+    const base = (url || gasUrl).trim();
+    if (!base || !base.includes("/exec")) return;
+    try {
+      const data = await gasGet(base, { action: "mapaColado" });
+      const mapa = {};
+      if (Array.isArray(data.mapa)) {
+        for (const item of data.mapa) {
+          if (Array.isArray(item) && item[0]) {
+            mapa[String(item[0])] = { cliente: String(item[1] || ""), paciente: String(item[2] || "") };
+          }
+        }
+      }
+      mapaColado.current = mapa;
+    } catch (e) {
+      // mantém busca individual por nota como fallback
+    }
+  }
+
+  // Preenche Cliente/Paciente sem apagar o que o usuário digitou à mão
+  function aplicarResultado(cli, pac) {
+    const pacLimpo = pac === "N/D" ? "" : pac;
+    setForm((f) => {
+      const nf = { ...f };
+      if (!f.cliente_hospital.trim() || f.cliente_hospital === lastAuto.current.cliente) {
+        nf.cliente_hospital = cli || f.cliente_hospital;
+      }
+      if (!f.paciente.trim() || f.paciente === lastAuto.current.paciente) {
+        nf.paciente = pacLimpo || f.paciente;
+      }
+      return nf;
+    });
+    lastAuto.current = { cliente: cli, paciente: pacLimpo };
+  }
+
   async function buscarNaColado(numero) {
     const num = String(numero || "").trim();
     if (!num || !gasUrl.includes("/exec")) return;
+    // 1) Tenta o mapa local primeiro (instantâneo, sem rede)
+    const achou = mapaColado.current[chaveMapa(num)];
+    if (achou && (achou.cliente || achou.paciente)) {
+      aplicarResultado(achou.cliente, achou.paciente);
+      ultimaBusca.current = { numero: num, quando: Date.now() };
+      return;
+    }
+    // 2) Fallback: busca individual no GAS (cobre base desatualizada / ação nova)
     // Evita buscar repetida do mesmo número em sequência (bip + efeito)
     const agora = Date.now();
     if (ultimaBusca.current.numero === num && agora - ultimaBusca.current.quando < 8000) return;
@@ -143,19 +210,7 @@ export default function Home() {
       const cli = String(data.cliente_hospital || "");
       const pacRaw = String(data.paciente || "");
       const pac = pacRaw === "N/D" ? "" : pacRaw;
-      setForm((f) => {
-        const nf = { ...f };
-        // Só preenche o que está vazio ou o que foi preenchido pela busca anterior
-        // (nunca apaga o que o usuário digitou à mão)
-        if (!f.cliente_hospital.trim() || f.cliente_hospital === lastAuto.current.cliente) {
-          nf.cliente_hospital = cli || f.cliente_hospital;
-        }
-        if (!f.paciente.trim() || f.paciente === lastAuto.current.paciente) {
-          nf.paciente = pac || f.paciente;
-        }
-        return nf;
-      });
-      lastAuto.current = { cliente: cli, paciente: pac };
+      aplicarResultado(cli, pac);
       setInfoColado("✓ Cliente e Paciente puxados da aba Colado");
     } catch (e) {
       setInfoColado(String(e.message || "Não encontrado na aba Colado"));
@@ -503,7 +558,7 @@ export default function Home() {
         <button className="link" onClick={() => setShowConfig((v) => !v)}>
           ⚙️ {showConfig ? "Ocultar config." : "Config. GAS / usuário"}
         </button>
-        <button className="link" onClick={() => gasUrl.includes("/exec") && carregar(gasUrl)}>
+        <button className="link" onClick={() => { if (gasUrl.includes("/exec")) { carregar(gasUrl); carregarMapa(gasUrl); } }}>
           ↻ Atualizar lista
         </button>
       </footer>

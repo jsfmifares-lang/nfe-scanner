@@ -35,6 +35,8 @@ function doGet(e) {
       result = excluirProtocolo(e.parameter);
     } else if (action === 'buscar') {
       result = buscarColado(e.parameter);
+    } else if (action === 'mapaColado') {
+      result = mapaColado();
     } else {
       result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
     }
@@ -213,6 +215,28 @@ function excluirProtocolo(d) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---- Mapa completo da aba "Colado" para o app (lookup instantâneo local) ----
+// Retorna [[numero, cliente_hospital, paciente], ...]. O app carrega 1x e
+// consulta local; se não achar, usa o 'buscar' como fallback (sempre atual).
+function mapaColado() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var aba = ss.getSheetByName('Colado');
+  if (!aba) return { success: false, mensagem: 'Aba "Colado" não encontrada na planilha' };
+  var last = aba.getLastRow();
+  if (last < 1) return { success: true, total: 0, mapa: [] };
+  var vals = aba.getRange(1, 1, last, 3).getValues();
+  var inicio = 0;
+  if (vals.length && !/\d/.test(String(vals[0][0] == null ? '' : vals[0][0]))) inicio = 1; // pula cabeçalho
+  var mapa = [];
+  for (var i = inicio; i < vals.length; i++) {
+    var r = vals[i];
+    var num = numeroDeCelulaGas(r[0]);
+    if (!num) continue;
+    mapa.push([num, String(r[1] == null ? '' : r[1]).trim(), String(r[2] == null ? '' : r[2]).trim()]);
+  }
+  return { success: true, total: mapa.length, mapa: mapa };
 }
 
 // ---- Busca Cliente/Hospital (col B) e Paciente (col C) na aba "Colado" ----
