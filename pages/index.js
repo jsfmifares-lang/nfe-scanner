@@ -347,7 +347,7 @@ export default function Home() {
     const q = busca.trim().toLowerCase();
     if (!q) return lista;
     return lista.filter((r) =>
-      [r.numero_doc, r.cliente_hospital, r.paciente, r.observacao, r.status, r.tipo_doc]
+      [r.numero_doc, r.cliente_hospital, r.paciente, r.observacao, r.status, r.tipo_doc, r.tipo_devolucao]
         .join(" ")
         .toLowerCase()
         .includes(q)
@@ -540,9 +540,9 @@ export default function Home() {
                   <td><b>{r.numero_doc}</b><div className="mini">{r.tipo_doc}</div></td>
                   <td>{r.cliente_hospital}</td>
                   <td>{r.paciente}</td>
-                  <td className="status">{r.status || STATUS_PADRAO}</td>
+                  <td className="status">{r.tipo_devolucao || r.status || STATUS_PADRAO}</td>
                   <td className="c">{formatarData(r.data_protocolo)}</td>
-                  <td>{r.observacao}{r.tipo_devolucao ? ` (${r.tipo_devolucao})` : ""}</td>
+                  <td>{r.observacao}</td>
                   <td className="c acoes">
                     <button title="Editar" onClick={() => editar(r)}>✏️</button>
                     <button title="Excluir" onClick={() => excluir(r)}>🗑️</button>
