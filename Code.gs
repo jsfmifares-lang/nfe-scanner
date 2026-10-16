@@ -24,7 +24,7 @@ function doGet(e) {
   var result;
   try {
     if (action === 'ping') {
-      result = { success: true, mensagem: 'Protocolo Mentor online' };
+      result = { success: true, mensagem: 'Protocolo Mentor online', versao: '2026-10-16-colado-rapido' };
     } else if (action === 'listar') {
       result = { success: true, dados: listarProtocolo() };
     } else if (action === 'salvar') {
