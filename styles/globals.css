@@ -87,7 +87,7 @@ body {
 .f-col.full { flex: 1 1 100%; }
 .f-col.small { width: 110px; }
 .f-col.tiny { width: 130px; }
-.f-col.mid { width: 280px; }
+.f-col.mid { width: 340px; }
 .f-col.grow { flex: 1; min-width: 200px; }
 .f-col.save { justify-content: flex-end; padding-bottom: 1px; flex-direction: row; gap: 8px; align-items: flex-end; }
 .mentor-form input[type=text], .mentor-form select {
