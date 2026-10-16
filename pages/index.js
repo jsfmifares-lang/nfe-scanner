@@ -3,12 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const TIPO_DOC_OPTS = ["NOTA", "VALE"];
 const TIPO_DEVOLUCAO_OPTS = [
   "",
-  "VENDA DIRETA",
-  "CONSIGNAÇÃO",
-  "DEVOLUÇÃO TOTAL",
+  "ACERTO POSTERIOR",
+  "AGUARDANDO CONFIRMAÇÃO DA MENTOR!",
   "DEVOLUÇÃO PARCIAL",
-  "VALE / REMESSA",
-  "OUTROS",
+  "DEVOLUÇÃO TOTAL",
+  "PARTICULAR",
+  "UTILIZADO",
+  "VENDA",
 ];
 const STATUS_PADRAO = "AGUARDANDO CONFIRMAÇÃO DA MENTOR!";
 
