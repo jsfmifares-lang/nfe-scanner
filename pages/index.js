@@ -537,7 +537,7 @@ export default function Home() {
               filtrada.map((r, i) => (
                 <tr key={r.id || i} className={editId === r.id ? "em-edicao" : ""}>
                   <td className="c">{filtrada.length - i}</td>
-                  <td><b>{r.numero_doc}</b><div className="mini">{r.tipo_doc}</div></td>
+                  <td><b>{r.numero_doc}</b>{r.tipo_doc && r.tipo_doc !== "NOTA" ? <div className="mini">{r.tipo_doc}</div> : null}</td>
                   <td>{r.cliente_hospital}</td>
                   <td>{r.paciente}</td>
                   <td className="status">{r.tipo_devolucao || r.status || STATUS_PADRAO}</td>
