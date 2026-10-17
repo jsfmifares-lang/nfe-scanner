@@ -218,7 +218,7 @@ body {
   animation: toastIn 0.25s ease;
   max-width: 340px;
 }
-.toast-ok { background: #e67e22; }
+.toast-ok { background: #27ae60; }
 .toast-erro { background: #c0392b; }
 .toast-aviso { background: #e67e22; }
 @keyframes toastIn {
