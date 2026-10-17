@@ -134,6 +134,7 @@ body {
 .mentor-tabela td.c, .mentor-tabela th.c { text-align: center; }
 .mentor-tabela td.status { font-size: 12px; font-weight: 600; }
 .mentor-tabela .mini { font-size: 11px; color: #666; }
+.mentor-tabela .acoes { white-space: nowrap; text-align: center; }
 .mentor-tabela .acoes button {
   background: none; border: none; cursor: pointer; font-size: 17px; margin: 0 3px;
 }
