@@ -518,6 +518,7 @@ export default function Home() {
               value={form.codigo_barras}
               onChange={(e) => set("codigo_barras", e.target.value)}
               onKeyDown={onBarcodeKeyDown}
+              disabled={!!editId}
               required
             />
           </div>
@@ -526,7 +527,7 @@ export default function Home() {
         <div className="f-row">
           <div className="f-col small">
             <label>Escolha</label>
-            <select value={form.tipo_doc} onChange={(e) => set("tipo_doc", e.target.value)}>
+            <select value={form.tipo_doc} onChange={(e) => set("tipo_doc", e.target.value)} disabled={!!editId}>
               {TIPO_DOC_OPTS.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
@@ -540,6 +541,7 @@ export default function Home() {
               placeholder="Nº"
               value={form.numero_doc}
               onChange={(e) => set("numero_doc", e.target.value)}
+              disabled={!!editId}
               required
             />
           </div>
@@ -558,6 +560,7 @@ export default function Home() {
                 }}
                 onFocus={() => { setCliFiltro(form.cliente_hospital); setShowCliSug(true); }}
                 onBlur={() => setTimeout(() => setShowCliSug(false), 150)}
+                disabled={!!editId}
                 required
               />
               {podeEditarCliente && (
@@ -594,6 +597,7 @@ export default function Home() {
               placeholder="Nome do paciente"
               value={form.paciente}
               onChange={(e) => set("paciente", e.target.value)}
+              disabled={!!editId}
             />
           </div>
         </div>
