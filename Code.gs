@@ -130,6 +130,8 @@ function salvarProtocolo(d) {
   var cliente = String((d && (d.cliente_hospital || d.cliente)) || '').trim();
   if (!numero) return { success: false, mensagem: 'Campo Nota é obrigatório' };
   if (!cliente) return { success: false, mensagem: 'Campo Cliente/Hospital é obrigatório' };
+  var tipoDev = String((d && (d.tipo_devolucao || d.tipoDevolucao)) || '').trim();
+  if (!tipoDev) return { success: false, mensagem: 'Campo Tipo devolução é obrigatório' };
 
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);

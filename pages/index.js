@@ -236,6 +236,7 @@ export default function Home() {
   function validar() {
     if (!form.numero_doc.trim()) return "Campo Nota é obrigatório *";
     if (!form.cliente_hospital.trim()) return "Campo Cliente/Hospital é obrigatório";
+    if (!form.tipo_devolucao.trim()) return "Campo Tipo devolução é obrigatório";
     if (!gasUrl.includes("/exec")) return "Configure a URL do GAS primeiro";
     return "";
   }
@@ -482,7 +483,7 @@ export default function Home() {
 
         <div className="f-row">
           <div className="f-col mid">
-            <label>Tipo devolução</label>
+            <label>Tipo devolução <b className="req">*</b></label>
             <select value={form.tipo_devolucao} onChange={(e) => set("tipo_devolucao", e.target.value)}>
               {TIPO_DEVOLUCAO_OPTS.map((o, i) => (
                 <option key={i} value={o}>{o === "" ? "— selecione —" : o}</option>
