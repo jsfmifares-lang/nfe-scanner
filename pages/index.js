@@ -263,6 +263,7 @@ export default function Home() {
   }, [form.numero_doc]);
 
   function validar() {
+    if (!form.codigo_barras.trim()) return "Campo Código de barras é obrigatório";
     if (!form.numero_doc.trim()) return "Campo Nota é obrigatório *";
     if (!form.cliente_hospital.trim()) return "Campo Cliente/Hospital é obrigatório";
     if (!form.tipo_devolucao.trim()) return "Campo Tipo devolução é obrigatório";
@@ -479,7 +480,7 @@ export default function Home() {
       <form className="mentor-form" onSubmit={salvar}>
         <div className="f-row">
           <div className="f-col full">
-            <label>Código de barras</label>
+            <label>Código de barras <b className="req">*</b></label>
             <input
               ref={barcodeRef}
               type="text"
@@ -489,6 +490,7 @@ export default function Home() {
               value={form.codigo_barras}
               onChange={(e) => set("codigo_barras", e.target.value)}
               onKeyDown={onBarcodeKeyDown}
+              required
             />
           </div>
         </div>
