@@ -134,9 +134,12 @@ body {
 .mentor-tabela td.c, .mentor-tabela th.c { text-align: center; }
 .mentor-tabela td.status { font-size: 12px; font-weight: 600; }
 .mentor-tabela .mini { font-size: 11px; color: #666; }
-.mentor-tabela .acoes { white-space: nowrap; text-align: center; }
+.mentor-tabela .acoes { min-width: 80px; }
+.mentor-tabela .acoes-row {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
 .mentor-tabela .acoes button {
-  background: none; border: none; cursor: pointer; font-size: 17px; margin: 0 3px;
+  background: none; border: none; cursor: pointer; font-size: 17px; margin: 0; line-height: 1;
 }
 
 .mentor-rodape { display: flex; gap: 16px; padding: 12px; }

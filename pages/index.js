@@ -544,8 +544,10 @@ export default function Home() {
                   <td className="c">{formatarData(r.data_protocolo)}</td>
                   <td>{r.observacao}</td>
                   <td className="c acoes">
-                    <button title="Editar" onClick={() => editar(r)}>✏️</button>
-                    <button title="Excluir" onClick={() => excluir(r)}>🗑️</button>
+                    <span className="acoes-row">
+                      <button title="Editar" onClick={() => editar(r)}>✏️</button>
+                      <button title="Excluir" onClick={() => excluir(r)}>🗑️</button>
+                    </span>
                   </td>
                 </tr>
               ))
