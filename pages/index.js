@@ -389,13 +389,15 @@ export default function Home() {
     try {
       if (editandoCliente) {
         const nomeAntigo = form.cliente_hospital.trim();
-        await gasGet(gasUrl.trim(), { action: "editarCliente", nome_antigo: nomeAntigo, nome_novo: nome });
-        showToast(`"${nomeAntigo}" → "${nome}" atualizado ✓`);
+        const r = await gasGet(gasUrl.trim(), { action: "editarCliente", nome_antigo: nomeAntigo, nome_novo: nome });
+        const prot = r.protocolos_atualizados || 0;
+        showToast(`"${nomeAntigo}" → "${nome}" atualizado ✓${prot > 0 ? ` (${prot} protocolo(s))` : ""}`);
         setListaClientes((l) => {
           const nova = l.map((c) => (c === nomeAntigo ? nome : c));
           return [...new Set(nova)].sort((a, b) => a.localeCompare(b));
         });
         set("cliente_hospital", nome);
+        if (prot > 0) await carregar(gasUrl);
       } else {
         await gasGet(gasUrl.trim(), { action: "salvarCliente", cliente_hospital: nome });
         showToast(`"${nome}" cadastrado ✓`);

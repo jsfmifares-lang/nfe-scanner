@@ -370,12 +370,13 @@ function editarCliente(d) {
   if (!nomeAntigo) return { success: false, mensagem: 'Informe o nome atual do Cliente/Hospital' };
   if (!nomeNovo) return { success: false, mensagem: 'Informe o novo nome do Cliente/Hospital' };
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  lock.waitLock(15000);
   try {
     var aba = getAbaClientes();
     var last = aba.getLastRow();
     if (last < 2) return { success: false, mensagem: 'Nenhum Cliente/Hospital cadastrado' };
     var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+    var encontrado = false;
     for (var i = 0; i < vals.length; i++) {
       var atual = String(vals[i][0] || '').trim();
       if (atual.toLowerCase() === nomeAntigo.toLowerCase()) {
@@ -386,10 +387,38 @@ function editarCliente(d) {
           }
         }
         aba.getRange(i + 2, 1).setValue(nomeNovo);
-        return { success: true, mensagem: 'Cliente/Hospital atualizado', nome_antigo: nomeAntigo, nome_novo: nomeNovo };
+        encontrado = true;
+        break;
       }
     }
-    return { success: false, mensagem: 'Cliente/Hospital não encontrado: ' + nomeAntigo };
+    if (!encontrado) return { success: false, mensagem: 'Cliente/Hospital não encontrado: ' + nomeAntigo };
+
+    // Espelha a alteração na aba "Protocolo" (coluna cliente_hospital)
+    var atualizados = 0;
+    try {
+      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      var abaProt = ss.getSheetByName(ABA);
+      if (abaProt) {
+        var lastP = abaProt.getLastRow();
+        if (lastP >= 2) {
+          var valsP = abaProt.getRange(2, 6, lastP - 1, 1).getValues(); // col F = cliente_hospital
+          for (var k = 0; k < valsP.length; k++) {
+            if (String(valsP[k][0] || '').trim().toLowerCase() === nomeAntigo.toLowerCase()) {
+              abaProt.getRange(k + 2, 6).setValue(nomeNovo);
+              atualizados++;
+            }
+          }
+        }
+      }
+    } catch (eProt) { /* aba Protocolo pode não existir ainda */ }
+
+    return {
+      success: true,
+      mensagem: 'Cliente/Hospital atualizado' + (atualizados > 0 ? ' e refletido em ' + atualizados + ' protocolo(s)' : ''),
+      nome_antigo: nomeAntigo,
+      nome_novo: nomeNovo,
+      protocolos_atualizados: atualizados
+    };
   } finally {
     lock.releaseLock();
   }
