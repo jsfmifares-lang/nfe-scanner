@@ -83,6 +83,12 @@ export default function Home() {
   const [showConfig, setShowConfig] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [infoColado, setInfoColado] = useState("");
+  const [showClienteModal, setShowClienteModal] = useState(false);
+  const [novoCliente, setNovoCliente] = useState("");
+  const [savingCliente, setSavingCliente] = useState(false);
+  const [msgCliente, setMsgCliente] = useState("");
+  const [msgClienteErro, setMsgClienteErro] = useState(false);
+  const [listaClientes, setListaClientes] = useState([]);
 
   const barcodeRef = useRef(null);
   const lastAuto = useRef({ cliente: "", paciente: "" });
@@ -323,6 +329,43 @@ export default function Home() {
     setInfoColado("");
   }
 
+  async function abrirModalCliente() {
+    setShowClienteModal(true);
+    setNovoCliente("");
+    setMsgCliente("");
+    setMsgClienteErro(false);
+    try {
+      const r = await gasGet(gasUrl.trim(), { action: "listarClientes" });
+      setListaClientes(r.dados || []);
+    } catch {
+      setListaClientes([]);
+    }
+  }
+
+  async function salvarNovoCliente(e) {
+    e.preventDefault();
+    const nome = novoCliente.trim();
+    if (!nome) {
+      setMsgCliente("Informe o nome do Cliente/Hospital");
+      setMsgClienteErro(true);
+      return;
+    }
+    setSavingCliente(true);
+    try {
+      await gasGet(gasUrl.trim(), { action: "salvarCliente", cliente_hospital: nome });
+      setMsgCliente(`"${nome}" cadastrado ✓`);
+      setMsgClienteErro(false);
+      setNovoCliente("");
+      setListaClientes((l) => [...l, nome].sort((a, b) => a.localeCompare(b)));
+      set("cliente_hospital", nome);
+    } catch (err) {
+      setMsgCliente(err.message || String(err));
+      setMsgClienteErro(true);
+    } finally {
+      setSavingCliente(false);
+    }
+  }
+
   async function excluir(item) {
     if (!confirm(`Excluir doc. ${item.numero_doc} (${item.cliente_hospital})?`)) return;
     try {
@@ -458,13 +501,16 @@ export default function Home() {
           </div>
           <div className="f-col grow">
             <label>Cliente/Hospital</label>
-            <input
-              type="text"
-              placeholder="Nome do cliente ou hospital"
-              value={form.cliente_hospital}
-              onChange={(e) => set("cliente_hospital", e.target.value)}
-              required
-            />
+            <div className="input-icone">
+              <input
+                type="text"
+                placeholder="Nome do cliente ou hospital"
+                value={form.cliente_hospital}
+                onChange={(e) => set("cliente_hospital", e.target.value)}
+                required
+              />
+              <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
+            </div>
           </div>
           <div className="f-col grow">
             <label>Paciente</label>
@@ -565,6 +611,49 @@ export default function Home() {
           ↻ Atualizar lista
         </button>
       </footer>
+
+      {showClienteModal && (
+        <div className="modal-overlay" onClick={() => setShowClienteModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-topo">
+              <span>Cadastro de Cliente/Hospital</span>
+              <button type="button" className="modal-x" onClick={() => setShowClienteModal(false)}>✕</button>
+            </div>
+            <form onSubmit={salvarNovoCliente} className="modal-corpo">
+              <label>Cliente/Hospital</label>
+              <div className="modal-row">
+                <input
+                  type="text"
+                  placeholder="Nome do cliente ou hospital"
+                  value={novoCliente}
+                  onChange={(e) => setNovoCliente(e.target.value)}
+                  autoFocus
+                />
+                <button type="submit" className="btn-salvar" disabled={savingCliente}>
+                  💾 {savingCliente ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+              {msgCliente && (
+                <div className={msgClienteErro ? "mentor-erro" : "modal-ok"}>{msgCliente}</div>
+              )}
+              {listaClientes.length > 0 && (
+                <div className="modal-lista">
+                  <label>Cadastrados ({listaClientes.length})</label>
+                  <ul>
+                    {listaClientes.map((c, i) => (
+                      <li key={i}>
+                        <button type="button" onClick={() => { set("cliente_hospital", c); setShowClienteModal(false); }}>
+                          {c}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

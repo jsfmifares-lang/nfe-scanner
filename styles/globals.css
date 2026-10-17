@@ -147,6 +147,54 @@ body {
   background: none; border: none; color: #2f5d8d; cursor: pointer; font-size: 13px;
 }
 
+.input-icone { display: flex; align-items: stretch; }
+.input-icone input { flex: 1; min-width: 0; }
+.input-icone button {
+  border: 1px solid #a9a9a9; border-left: none; background: #f0f0f0;
+  border-radius: 0 3px 3px 0; cursor: pointer; font-size: 16px; padding: 0 10px;
+  color: #2f5d8d;
+}
+.input-icone button:hover { background: #e0e8f0; }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal {
+  background: #fff; border-radius: 8px; width: 92%; max-width: 480px;
+  max-height: 85vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+.modal-topo {
+  background: #2f5d8d; color: #fff; padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 700; font-size: 15px; border-radius: 8px 8px 0 0;
+}
+.modal-x {
+  background: none; border: none; color: #fff; cursor: pointer; font-size: 18px;
+}
+.modal-corpo { padding: 14px; overflow-y: auto; }
+.modal-corpo label { color: #1a3f7a; font-size: 14px; font-weight: 700; display: block; margin-bottom: 4px; }
+.modal-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.modal-row input {
+  flex: 1; padding: 8px 10px; border: 1px solid #a9a9a9; border-radius: 3px; font-size: 14px;
+}
+.modal-ok {
+  background: #eafff3; color: #1a7a4c; padding: 8px 10px;
+  border-radius: 4px; font-size: 13px; margin-bottom: 10px;
+}
+.modal-lista { margin-top: 12px; }
+.modal-lista ul {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;
+}
+.modal-lista li + li { border-top: 1px solid #eee; }
+.modal-lista li button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 8px 10px; cursor: pointer; font-size: 13px;
+}
+.modal-lista li button:hover { background: #eef4fb; }
+
 @media (max-width: 760px) {
   .mentor-sub { font-size: 16px; }
   .f-col.small, .f-col.tiny, .f-col.mid { width: 100%; }

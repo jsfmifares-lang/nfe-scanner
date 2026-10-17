@@ -37,6 +37,10 @@ function doGet(e) {
       result = buscarColado(e.parameter);
     } else if (action === 'mapaColado') {
       result = mapaColado();
+    } else if (action === 'listarClientes') {
+      result = listarClientes();
+    } else if (action === 'salvarCliente') {
+      result = salvarCliente(e.parameter);
     } else {
       result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
     }
@@ -306,4 +310,54 @@ function buscarColado(d) {
     }
   }
   return { success: false, mensagem: 'Doc. ' + numero + ' não encontrado na aba "Colado" (' + total + ' linha(s) verificadas)' };
+}
+
+// ---- Cadastro de Cliente/Hospital (aba "Cliente/Hospital") ----
+var ABA_CLIENTES = 'Cliente/Hospital';
+
+function getAbaClientes() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var aba = ss.getSheetByName(ABA_CLIENTES);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_CLIENTES);
+    aba.appendRow(['cliente_hospital']);
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+function listarClientes() {
+  var aba = getAbaClientes();
+  var last = aba.getLastRow();
+  if (last < 2) return { success: true, dados: [] };
+  var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var nome = String(vals[i][0] == null ? '' : vals[i][0]).trim();
+    if (nome) out.push(nome);
+  }
+  return { success: true, dados: out };
+}
+
+function salvarCliente(d) {
+  var nome = String((d && (d.cliente_hospital || d.nome)) || '').trim();
+  if (!nome) return { success: false, mensagem: 'Informe o nome do Cliente/Hospital' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAbaClientes();
+    var last = aba.getLastRow();
+    if (last >= 2) {
+      var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0] || '').trim().toLowerCase() === nome.toLowerCase()) {
+          return { success: false, mensagem: 'Este Cliente/Hospital já está cadastrado' };
+        }
+      }
+    }
+    aba.appendRow([nome]);
+    return { success: true, mensagem: 'Cliente/Hospital cadastrado', nome: nome };
+  } finally {
+    lock.releaseLock();
+  }
 }
