@@ -77,20 +77,23 @@ export default function Home() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
-  const [msgErro, setMsgErro] = useState(false);
   const [gasUrl, setGasUrl] = useState("");
   const [showConfig, setShowConfig] = useState(false);
   const [buscando, setBuscando] = useState(false);
-  const [infoColado, setInfoColado] = useState("");
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [novoCliente, setNovoCliente] = useState("");
   const [savingCliente, setSavingCliente] = useState(false);
-  const [msgCliente, setMsgCliente] = useState("");
-  const [msgClienteErro, setMsgClienteErro] = useState(false);
   const [listaClientes, setListaClientes] = useState([]);
   const [cliFiltro, setCliFiltro] = useState("");
   const [showCliSug, setShowCliSug] = useState(false);
+  const [toast, setToast] = useState(null); // { texto, tipo }
+  const toastTimer = useRef(null);
+
+  function showToast(texto, tipo = "ok") {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ texto, tipo });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
 
   const barcodeRef = useRef(null);
   const lastAuto = useRef({ cliente: "", paciente: "" });
@@ -148,8 +151,7 @@ export default function Home() {
       const data = await gasGet(base, { action: "listar" });
       setLista(Array.isArray(data.dados) ? data.dados : []);
     } catch (e) {
-      setMsg("Erro ao carregar: " + e.message);
-      setMsgErro(true);
+      showToast("Erro ao carregar: " + e.message, "erro");
     } finally {
       setLoading(false);
     }
@@ -242,9 +244,8 @@ export default function Home() {
       const pacRaw = String(data.paciente || "");
       const pac = pacRaw === "N/D" ? "" : pacRaw;
       aplicarResultado(cli, pac);
-      setInfoColado("✓ Cliente e Paciente puxados da aba Colado");
     } catch (e) {
-      setInfoColado(String(e.message || "Não encontrado na aba Colado"));
+      // silencioso — sem aviso na tela
     } finally {
       setBuscando(false);
     }
@@ -253,10 +254,7 @@ export default function Home() {
   useEffect(() => {
     if (buscaTimer.current) clearTimeout(buscaTimer.current);
     const num = form.numero_doc.trim();
-    if (!num) {
-      setInfoColado("");
-      return;
-    }
+    if (!num) return;
     buscaTimer.current = setTimeout(() => buscarNaColado(num), 300);
     return () => {
       if (buscaTimer.current) clearTimeout(buscaTimer.current);
@@ -274,12 +272,9 @@ export default function Home() {
 
   async function salvar(e) {
     if (e) e.preventDefault();
-    setMsg("");
-    setMsgErro(false);
     const erro = validar();
     if (erro) {
-      setMsg(erro);
-      setMsgErro(true);
+      showToast(erro, "erro");
       return;
     }
     setSaving(true);
@@ -298,7 +293,7 @@ export default function Home() {
           observacao: form.observacao.trim(),
           usuario: usuario.trim(),
         });
-        setMsg("Protocolo atualizado ✓");
+        showToast("Protocolo atualizado ✓");
       } else {
         await gasGet(base, {
           action: "salvar",
@@ -313,18 +308,15 @@ export default function Home() {
           status: STATUS_PADRAO,
           usuario: usuario.trim(),
         });
-        setMsg(`Doc. ${form.numero_doc.trim()} protocolado ✓`);
+        showToast(`Doc. ${form.numero_doc.trim()} protocolado ✓`);
       }
-      setMsgErro(false);
       setForm(vazio);
       setEditId(null);
       lastAuto.current = { cliente: "", paciente: "" };
-      setInfoColado("");
       await carregar(base);
       barcodeRef.current?.focus();
     } catch (err) {
-      setMsg("Erro ao salvar: " + (err.message || String(err)));
-      setMsgErro(true);
+      showToast("Erro ao salvar: " + (err.message || String(err)), "erro");
     } finally {
       setSaving(false);
     }
@@ -333,7 +325,6 @@ export default function Home() {
   function editar(item) {
     setEditId(item.id);
     lastAuto.current = { cliente: "", paciente: "" };
-    setInfoColado("");
     setForm({
       codigo_barras: item.codigo_barras || "",
       tipo_doc: item.tipo_doc || "NOTA",
@@ -351,7 +342,6 @@ export default function Home() {
     setEditId(null);
     setForm(vazio);
     lastAuto.current = { cliente: "", paciente: "" };
-    setInfoColado("");
   }
 
   async function carregarClientes(url) {
@@ -368,8 +358,6 @@ export default function Home() {
   async function abrirModalCliente() {
     setShowClienteModal(true);
     setNovoCliente("");
-    setMsgCliente("");
-    setMsgClienteErro(false);
     await carregarClientes();
   }
 
@@ -377,21 +365,18 @@ export default function Home() {
     e.preventDefault();
     const nome = novoCliente.trim();
     if (!nome) {
-      setMsgCliente("Informe o nome do Cliente/Hospital");
-      setMsgClienteErro(true);
+      showToast("Informe o nome do Cliente/Hospital", "erro");
       return;
     }
     setSavingCliente(true);
     try {
       await gasGet(gasUrl.trim(), { action: "salvarCliente", cliente_hospital: nome });
-      setMsgCliente(`"${nome}" cadastrado ✓`);
-      setMsgClienteErro(false);
+      showToast(`"${nome}" cadastrado ✓`);
       setNovoCliente("");
       setListaClientes((l) => [...l, nome].sort((a, b) => a.localeCompare(b)));
       set("cliente_hospital", nome);
     } catch (err) {
-      setMsgCliente(err.message || String(err));
-      setMsgClienteErro(true);
+      showToast(err.message || String(err), "erro");
     } finally {
       setSavingCliente(false);
     }
@@ -401,12 +386,10 @@ export default function Home() {
     if (!confirm(`Excluir doc. ${item.numero_doc} (${item.cliente_hospital})?`)) return;
     try {
       await gasGet(gasUrl.trim(), { action: "excluir", id: item.id });
-      setMsg("Protocolo excluído");
-      setMsgErro(false);
+      showToast("Protocolo excluído");
       await carregar(gasUrl);
     } catch (err) {
-      setMsg("Erro ao excluir: " + err.message);
-      setMsgErro(true);
+      showToast("Erro ao excluir: " + err.message, "erro");
     }
   }
 
@@ -609,8 +592,6 @@ export default function Home() {
             />
           </div>
         </div>
-
-        {msg && msgErro ? <div className="mentor-erro">{msg}</div> : null}
       </form>
 
       {/* TABELA */}
@@ -686,9 +667,6 @@ export default function Home() {
                   💾 {savingCliente ? "Salvando..." : "Salvar"}
                 </button>
               </div>
-              {msgCliente && (
-                <div className={msgClienteErro ? "mentor-erro" : "modal-ok"}>{msgCliente}</div>
-              )}
               {listaClientes.length > 0 && (
                 <div className="modal-lista">
                   <label>Cadastrados ({listaClientes.length})</label>
@@ -705,6 +683,13 @@ export default function Home() {
               )}
             </form>
           </div>
+        </div>
+      )}
+
+      {/* TOAST */}
+      {toast && (
+        <div className={`toast toast-${toast.tipo}`} onClick={() => setToast(null)}>
+          {toast.texto}
         </div>
       )}
     </div>
