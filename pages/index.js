@@ -560,9 +560,11 @@ export default function Home() {
                 onBlur={() => setTimeout(() => setShowCliSug(false), 150)}
                 required
               />
-              <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
               {podeEditarCliente && (
-                <button type="button" title="Editar Cliente/Hospital" onClick={abrirModalClienteEdicao}>✏️</button>
+                <>
+                  <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
+                  <button type="button" title="Editar Cliente/Hospital" onClick={abrirModalClienteEdicao}>✏️</button>
+                </>
               )}
               {showCliSug && cliSugestoes.length > 0 && (
                 <ul className="cli-sugestoes">
