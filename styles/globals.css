@@ -156,6 +156,21 @@ body {
 }
 .input-icone button:hover { background: #e0e8f0; }
 
+.cli-autocomplete { position: relative; }
+.cli-sugestoes {
+  position: absolute; top: 100%; left: 0; right: 40px; z-index: 60;
+  background: #fff; border: 1px solid #a9a9a9; border-top: none;
+  border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto;
+  list-style: none; margin: 0; padding: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.cli-sugestoes li + li { border-top: 1px solid #eee; }
+.cli-sugestoes li button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 8px 10px; cursor: pointer; font-size: 13px;
+}
+.cli-sugestoes li button:hover { background: #eef4fb; }
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; align-items: center; justify-content: center; z-index: 100;

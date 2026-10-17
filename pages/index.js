@@ -89,6 +89,8 @@ export default function Home() {
   const [msgCliente, setMsgCliente] = useState("");
   const [msgClienteErro, setMsgClienteErro] = useState(false);
   const [listaClientes, setListaClientes] = useState([]);
+  const [cliFiltro, setCliFiltro] = useState("");
+  const [showCliSug, setShowCliSug] = useState(false);
 
   const barcodeRef = useRef(null);
   const lastAuto = useRef({ cliente: "", paciente: "" });
@@ -96,6 +98,13 @@ export default function Home() {
   const ultimaBusca = useRef({ numero: "", quando: 0 });
   const mapaColado = useRef({}); // numero -> {cliente, paciente} (lookup instantâneo)
   const mapaTimer = useRef(null);
+  const cliInputRef = useRef(null);
+
+  const cliSugestoes = useMemo(() => {
+    const q = cliFiltro.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return listaClientes.filter((c) => c.toLowerCase().includes(q)).slice(0, 30);
+  }, [cliFiltro, listaClientes]);
 
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
@@ -523,22 +532,42 @@ export default function Home() {
           </div>
           <div className="f-col grow">
             <label>Cliente/Hospital</label>
-            <div className="input-icone">
+            <div className="input-icone cli-autocomplete">
               <input
+                ref={cliInputRef}
                 type="text"
                 placeholder="Nome do cliente ou hospital"
                 value={form.cliente_hospital}
-                onChange={(e) => set("cliente_hospital", e.target.value)}
-                list="lista-clientes"
+                onChange={(e) => {
+                  set("cliente_hospital", e.target.value);
+                  setCliFiltro(e.target.value);
+                  setShowCliSug(true);
+                }}
+                onFocus={() => { setCliFiltro(form.cliente_hospital); setShowCliSug(true); }}
+                onBlur={() => setTimeout(() => setShowCliSug(false), 150)}
                 required
               />
               <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
+              {showCliSug && cliSugestoes.length > 0 && (
+                <ul className="cli-sugestoes">
+                  {cliSugestoes.map((c, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          set("cliente_hospital", c);
+                          setShowCliSug(false);
+                          cliInputRef.current?.focus();
+                        }}
+                      >
+                        {c}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <datalist id="lista-clientes">
-              {listaClientes.map((c, i) => (
-                <option key={i} value={c} />
-              ))}
-            </datalist>
           </div>
           <div className="f-col grow">
             <label>Paciente</label>
