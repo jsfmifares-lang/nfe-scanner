@@ -116,6 +116,7 @@ export default function Home() {
     if (gasUrl && gasUrl.includes("/exec")) {
       carregar(gasUrl);
       carregarMapa(gasUrl);
+      carregarClientes(gasUrl);
       // Atualiza a base silenciosamente a cada 10 min (planilha pode mudar no dia)
       if (mapaTimer.current) clearInterval(mapaTimer.current);
       mapaTimer.current = setInterval(() => carregarMapa(gasUrl), 10 * 60 * 1000);
@@ -149,12 +150,22 @@ export default function Home() {
     let notaExtraida = "";
     setForm((f) => {
       const nf = { ...f, [campo]: valor };
-      // Se bipou código de 44 dígitos e Nota vazia, preenche sozinho
-      if (campo === "codigo_barras" && !f.numero_doc) {
-        const n = extrairNumeroDoc(valor);
-        if (n) {
-          nf.numero_doc = n;
-          notaExtraida = n;
+      if (campo === "codigo_barras") {
+        const s = String(valor || "").trim();
+        const dig = s.replace(/\D/g, "");
+        if (dig.length === 44) {
+          // Código 44 dígitos (NFe): extrai Nota sozinho
+          if (!f.numero_doc) {
+            const n = extrairNumeroDoc(s);
+            if (n) {
+              nf.numero_doc = n;
+              notaExtraida = n;
+            }
+          }
+        } else if (s.length > 0 && s.length < 44) {
+          // Código curto (VALE): Escolha=VALE, Nota=código
+          nf.tipo_doc = "VALE";
+          nf.numero_doc = s;
         }
       }
       return nf;
@@ -334,17 +345,23 @@ export default function Home() {
     setInfoColado("");
   }
 
+  async function carregarClientes(url) {
+    const base = (url || gasUrl).trim();
+    if (!base || !base.includes("/exec")) return;
+    try {
+      const r = await gasGet(base, { action: "listarClientes" });
+      setListaClientes(r.dados || []);
+    } catch {
+      // ignora se ação ainda não existir no GAS
+    }
+  }
+
   async function abrirModalCliente() {
     setShowClienteModal(true);
     setNovoCliente("");
     setMsgCliente("");
     setMsgClienteErro(false);
-    try {
-      const r = await gasGet(gasUrl.trim(), { action: "listarClientes" });
-      setListaClientes(r.dados || []);
-    } catch {
-      setListaClientes([]);
-    }
+    await carregarClientes();
   }
 
   async function salvarNovoCliente(e) {
@@ -512,10 +529,16 @@ export default function Home() {
                 placeholder="Nome do cliente ou hospital"
                 value={form.cliente_hospital}
                 onChange={(e) => set("cliente_hospital", e.target.value)}
+                list="lista-clientes"
                 required
               />
               <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
             </div>
+            <datalist id="lista-clientes">
+              {listaClientes.map((c, i) => (
+                <option key={i} value={c} />
+              ))}
+            </datalist>
           </div>
           <div className="f-col grow">
             <label>Paciente</label>
