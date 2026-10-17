@@ -100,9 +100,14 @@ export default function Home() {
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
     const envUrl = process.env.NEXT_PUBLIC_GAS_URL || "";
-    const inicial = salvo || envUrl;
-    if (inicial) setGasUrl(inicial);
-    else setShowConfig(true);
+    // Prioridade: URL da Vercel (env) > localStorage. Se env mudar, atualiza o localStorage.
+    const inicial = envUrl || salvo;
+    if (inicial) {
+      setGasUrl(inicial);
+      if (envUrl && salvo !== envUrl) {
+        try { localStorage.setItem("mentor_gas_url", envUrl); } catch {}
+      }
+    } else setShowConfig(true);
     const u = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
     if (u) setUsuario(u);
   }, []);
