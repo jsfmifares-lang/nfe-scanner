@@ -41,6 +41,8 @@ function doGet(e) {
       result = listarClientes();
     } else if (action === 'salvarCliente') {
       result = salvarCliente(e.parameter);
+    } else if (action === 'editarCliente') {
+      result = editarCliente(e.parameter);
     } else {
       result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
     }
@@ -357,6 +359,37 @@ function salvarCliente(d) {
     }
     aba.appendRow([nome]);
     return { success: true, mensagem: 'Cliente/Hospital cadastrado', nome: nome };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function editarCliente(d) {
+  var nomeAntigo = String((d && (d.nome_antigo || d.antigo)) || '').trim();
+  var nomeNovo = String((d && (d.nome_novo || d.novo)) || '').trim();
+  if (!nomeAntigo) return { success: false, mensagem: 'Informe o nome atual do Cliente/Hospital' };
+  if (!nomeNovo) return { success: false, mensagem: 'Informe o novo nome do Cliente/Hospital' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAbaClientes();
+    var last = aba.getLastRow();
+    if (last < 2) return { success: false, mensagem: 'Nenhum Cliente/Hospital cadastrado' };
+    var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var atual = String(vals[i][0] || '').trim();
+      if (atual.toLowerCase() === nomeAntigo.toLowerCase()) {
+        // Verifica duplicidade do novo nome
+        for (var j = 0; j < vals.length; j++) {
+          if (j !== i && String(vals[j][0] || '').trim().toLowerCase() === nomeNovo.toLowerCase()) {
+            return { success: false, mensagem: 'Já existe um Cliente/Hospital com o nome "' + nomeNovo + '"' };
+          }
+        }
+        aba.getRange(i + 2, 1).setValue(nomeNovo);
+        return { success: true, mensagem: 'Cliente/Hospital atualizado', nome_antigo: nomeAntigo, nome_novo: nomeNovo };
+      }
+    }
+    return { success: false, mensagem: 'Cliente/Hospital não encontrado: ' + nomeAntigo };
   } finally {
     lock.releaseLock();
   }

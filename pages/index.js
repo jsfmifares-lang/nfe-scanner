@@ -88,6 +88,7 @@ export default function Home() {
   const [showCliSug, setShowCliSug] = useState(false);
   const [toast, setToast] = useState(null); // { texto, tipo }
   const toastTimer = useRef(null);
+  const [editandoCliente, setEditandoCliente] = useState(false); // modal em modo edição
 
   function showToast(texto, tipo = "ok") {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -108,6 +109,8 @@ export default function Home() {
     if (q.length < 2) return [];
     return listaClientes.filter((c) => c.toLowerCase().includes(q)).slice(0, 30);
   }, [cliFiltro, listaClientes]);
+
+  const podeEditarCliente = form.tipo_doc === "VALE" && form.codigo_barras.trim().length > 0 && form.codigo_barras.trim().length < 44;
 
   useEffect(() => {
     const salvo = typeof window !== "undefined" ? localStorage.getItem("mentor_gas_url") || "" : "";
@@ -357,8 +360,21 @@ export default function Home() {
   }
 
   async function abrirModalCliente() {
+    setEditandoCliente(false);
     setShowClienteModal(true);
     setNovoCliente("");
+    await carregarClientes();
+  }
+
+  async function abrirModalClienteEdicao() {
+    const nomeAtual = form.cliente_hospital.trim();
+    if (!nomeAtual) {
+      showToast("Selecione ou digite um Cliente/Hospital primeiro", "erro");
+      return;
+    }
+    setEditandoCliente(true);
+    setShowClienteModal(true);
+    setNovoCliente(nomeAtual);
     await carregarClientes();
   }
 
@@ -371,11 +387,23 @@ export default function Home() {
     }
     setSavingCliente(true);
     try {
-      await gasGet(gasUrl.trim(), { action: "salvarCliente", cliente_hospital: nome });
-      showToast(`"${nome}" cadastrado ✓`);
-      setNovoCliente("");
-      setListaClientes((l) => [...l, nome].sort((a, b) => a.localeCompare(b)));
-      set("cliente_hospital", nome);
+      if (editandoCliente) {
+        const nomeAntigo = form.cliente_hospital.trim();
+        await gasGet(gasUrl.trim(), { action: "editarCliente", nome_antigo: nomeAntigo, nome_novo: nome });
+        showToast(`"${nomeAntigo}" → "${nome}" atualizado ✓`);
+        setListaClientes((l) => {
+          const nova = l.map((c) => (c === nomeAntigo ? nome : c));
+          return [...new Set(nova)].sort((a, b) => a.localeCompare(b));
+        });
+        set("cliente_hospital", nome);
+      } else {
+        await gasGet(gasUrl.trim(), { action: "salvarCliente", cliente_hospital: nome });
+        showToast(`"${nome}" cadastrado ✓`);
+        setNovoCliente("");
+        setListaClientes((l) => [...l, nome].sort((a, b) => a.localeCompare(b)));
+        set("cliente_hospital", nome);
+      }
+      setShowClienteModal(false);
     } catch (err) {
       showToast(err.message || String(err), "erro");
     } finally {
@@ -533,6 +561,9 @@ export default function Home() {
                 required
               />
               <button type="button" title="Cadastrar novo Cliente/Hospital" onClick={abrirModalCliente}>➕</button>
+              {podeEditarCliente && (
+                <button type="button" title="Editar Cliente/Hospital" onClick={abrirModalClienteEdicao}>✏️</button>
+              )}
               {showCliSug && cliSugestoes.length > 0 && (
                 <ul className="cli-sugestoes">
                   {cliSugestoes.map((c, i) => (
@@ -652,7 +683,7 @@ export default function Home() {
         <div className="modal-overlay" onClick={() => setShowClienteModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-topo">
-              <span>Cadastro de Cliente/Hospital</span>
+              <span>{editandoCliente ? "Editar Cliente/Hospital" : "Cadastro de Cliente/Hospital"}</span>
               <button type="button" className="modal-x" onClick={() => setShowClienteModal(false)}>✕</button>
             </div>
             <form onSubmit={salvarNovoCliente} className="modal-corpo">
@@ -666,7 +697,7 @@ export default function Home() {
                   autoFocus
                 />
                 <button type="submit" className="btn-salvar" disabled={savingCliente}>
-                  💾 {savingCliente ? "Salvando..." : "Salvar"}
+                  💾 {savingCliente ? "Salvando..." : editandoCliente ? "Atualizar" : "Salvar"}
                 </button>
               </div>
               {listaClientes.length > 0 && (
