@@ -580,10 +580,6 @@ export default function Home() {
           </div>
         </div>
 
-        {!buscando && infoColado && !infoColado.startsWith("✓") && form.numero_doc.trim() ? (
-          <div className="mentor-colado-info">{infoColado}</div>
-        ) : null}
-
         <div className="f-row">
           <div className="f-col mid">
             <label>Tipo devolução <b className="req">*</b></label>
@@ -641,7 +637,7 @@ export default function Home() {
               filtrada.map((r, i) => (
                 <tr key={r.id || i} className={editId === r.id ? "em-edicao" : ""}>
                   <td className="c">{filtrada.length - i}</td>
-                  <td><b>{r.numero_doc}</b>{r.tipo_doc && r.tipo_doc !== "NOTA" ? <div className="mini">{r.tipo_doc}</div> : null}</td>
+                  <td><b>{r.numero_doc}</b></td>
                   <td>{r.cliente_hospital}</td>
                   <td>{r.paciente}</td>
                   <td className="status">{r.tipo_devolucao || r.status || STATUS_PADRAO}</td>
