@@ -43,6 +43,12 @@ function doGet(e) {
       result = salvarCliente(e.parameter);
     } else if (action === 'editarCliente') {
       result = editarCliente(e.parameter);
+    } else if (action === 'login') {
+      result = loginUsuario(e.parameter);
+    } else if (action === 'cadastrarUsuario') {
+      result = cadastrarUsuario(e.parameter);
+    } else if (action === 'recuperarSenha') {
+      result = recuperarSenha(e.parameter);
     } else {
       result = { success: false, mensagem: 'Acao nao reconhecida: ' + action };
     }
@@ -422,4 +428,86 @@ function editarCliente(d) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---- Sistema de Login (aba "Usuarios") ----
+var ABA_USUARIOS = 'Usuarios';
+var HEADER_USUARIOS = ['Usuario', 'E-mail', 'Senha', 'Confirma_Senha'];
+
+function getAbaUsuarios() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var aba = ss.getSheetByName(ABA_USUARIOS);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_USUARIOS);
+    aba.appendRow(HEADER_USUARIOS);
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+function loginUsuario(d) {
+  var usuario = String((d && (d.usuario || d.user)) || '').trim();
+  var senha = String((d && d.senha) || '').trim();
+  if (!usuario || !senha) return { success: false, mensagem: 'Informe usuário e senha' };
+  var aba = getAbaUsuarios();
+  var last = aba.getLastRow();
+  if (last < 2) return { success: false, mensagem: 'Nenhum usuário cadastrado' };
+  var vals = aba.getRange(2, 1, last - 1, 3).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var u = String(vals[i][0] || '').trim();
+    var e = String(vals[i][1] || '').trim();
+    var s = String(vals[i][2] || '').trim();
+    if ((u.toLowerCase() === usuario.toLowerCase() || e.toLowerCase() === usuario.toLowerCase()) && s === senha) {
+      return { success: true, usuario: u, email: e, mensagem: 'Login realizado com sucesso' };
+    }
+  }
+  return { success: false, mensagem: 'Usuário ou senha incorretos' };
+}
+
+function cadastrarUsuario(d) {
+  var usuario = String((d && (d.usuario || d.user)) || '').trim();
+  var email = String((d && d.email) || '').trim();
+  var senha = String((d && d.senha) || '').trim();
+  var confirma = String((d && (d.confirma || d.confirma_senha)) || '').trim();
+  if (!usuario || !email || !senha || !confirma) return { success: false, mensagem: 'Preencha todos os campos' };
+  if (senha !== confirma) return { success: false, mensagem: 'Senhas não conferem' };
+  if (senha.length < 4) return { success: false, mensagem: 'Senha deve ter pelo menos 4 caracteres' };
+  var aba = getAbaUsuarios();
+  var last = aba.getLastRow();
+  if (last >= 2) {
+    var vals = aba.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0] || '').trim().toLowerCase() === usuario.toLowerCase()) {
+        return { success: false, mensagem: 'Usuário já cadastrado' };
+      }
+      if (String(vals[i][1] || '').trim().toLowerCase() === email.toLowerCase()) {
+        return { success: false, mensagem: 'E-mail já cadastrado' };
+      }
+    }
+  }
+  aba.appendRow([usuario, email, senha, confirma]);
+  return { success: true, mensagem: 'Usuário cadastrado com sucesso' };
+}
+
+function recuperarSenha(d) {
+  var email = String((d && d.email) || '').trim();
+  if (!email) return { success: false, mensagem: 'Informe o e-mail' };
+  var aba = getAbaUsuarios();
+  var last = aba.getLastRow();
+  if (last < 2) return { success: false, mensagem: 'Nenhum usuário cadastrado' };
+  var vals = aba.getRange(2, 1, last - 1, 3).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var u = String(vals[i][0] || '').trim();
+    var e = String(vals[i][1] || '').trim();
+    var s = String(vals[i][2] || '').trim();
+    if (e.toLowerCase() === email.toLowerCase()) {
+      MailApp.sendEmail({
+        to: email,
+        subject: 'Recuperação de senha - Protocolo Mentor',
+        body: 'Olá ' + u + ',\n\nSua senha é: ' + s + '\n\nAtenciosamente,\nProtocolo Mentor'
+      });
+      return { success: true, mensagem: 'Senha enviada para ' + email };
+    }
+  }
+  return { success: false, mensagem: 'E-mail não encontrado' };
 }

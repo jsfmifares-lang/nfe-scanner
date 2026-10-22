@@ -233,3 +233,50 @@ body {
   .btn-salvar { width: 100%; }
   .mentor-busca input { width: 100px; }
 }
+
+/* ===== Login ===== */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: linear-gradient(135deg, #2f5d8d 0%, #1a3a5c 100%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.login-card {
+  background: #fff; border-radius: 12px; padding: 32px 28px;
+  width: 100%; max-width: 380px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  text-align: center;
+}
+.login-logo {
+  font-size: 40px; margin-bottom: 8px;
+  background: #2f5d8d; color: #fff;
+  width: 64px; height: 64px; border-radius: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.login-card h1 { font-size: 22px; margin: 0 0 20px; color: #2f5d8d; }
+.login-form { text-align: left; }
+.login-form label { display: block; font-size: 13px; font-weight: 600; color: #2f5d8d; margin: 10px 0 4px; }
+.login-form input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 14px; outline: none;
+}
+.login-form input:focus { border-color: #2f5d8d; }
+.btn-login {
+  width: 100%; margin-top: 18px; padding: 12px;
+  background: #27ae60; color: #fff; border: none; border-radius: 6px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.btn-login:hover { background: #219a52; }
+.btn-login:disabled { opacity: 0.6; cursor: wait; }
+.login-links { display: flex; justify-content: space-between; margin-top: 14px; }
+.login-links button {
+  background: none; border: none; color: #2f5d8d; font-size: 13px;
+  cursor: pointer; text-decoration: underline; padding: 4px;
+}
+.login-links button:hover { color: #1a3a5c; }
+.login-info { font-size: 13px; color: #555; margin: 0 0 8px; }
+.btn-sair {
+  background: none; border: none; color: #fff; font-size: 18px;
+  cursor: pointer; margin-left: 6px; padding: 2px 6px;
+}
+.btn-sair:hover { color: #ffcccc; }

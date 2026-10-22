@@ -90,6 +90,19 @@ export default function Home() {
   const toastTimer = useRef(null);
   const [editandoCliente, setEditandoCliente] = useState(false); // modal em modo edição
 
+  // ---- Login ----
+  const [logado, setLogado] = useState(false);
+  const [checkingLogin, setCheckingLogin] = useState(true);
+  const [loginView, setLoginView] = useState("login"); // login | cadastro | recuperar
+  const [loginUser, setLoginUser] = useState("");
+  const [loginSenha, setLoginSenha] = useState("");
+  const [cadUser, setCadUser] = useState("");
+  const [cadEmail, setCadEmail] = useState("");
+  const [cadSenha, setCadSenha] = useState("");
+  const [cadConfirma, setCadConfirma] = useState("");
+  const [recEmail, setRecEmail] = useState("");
+  const [savingLogin, setSavingLogin] = useState(false);
+
   function showToast(texto, tipo = "ok") {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ texto, tipo });
@@ -123,11 +136,16 @@ export default function Home() {
         try { localStorage.setItem("mentor_gas_url", envUrl); } catch {}
       }
     } else setShowConfig(true);
-    const u = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
-    if (u) setUsuario(u);
+    // Verifica login salvo
+    const logadoSalvo = typeof window !== "undefined" ? localStorage.getItem("mentor_logado") === "1" : false;
+    const usuarioSalvo = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
+    if (usuarioSalvo) setUsuario(usuarioSalvo);
+    setLogado(logadoSalvo);
+    setCheckingLogin(false);
   }, []);
 
   useEffect(() => {
+    if (!logado) return;
     if (gasUrl && gasUrl.includes("/exec")) {
       carregar(gasUrl);
       carregarMapa(gasUrl);
@@ -140,11 +158,11 @@ export default function Home() {
       if (mapaTimer.current) clearInterval(mapaTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gasUrl]);
+  }, [gasUrl, logado]);
 
   useEffect(() => {
-    barcodeRef.current?.focus();
-  }, []);
+    if (logado) barcodeRef.current?.focus();
+  }, [logado]);
 
   async function carregar(url) {
     const base = (url || gasUrl).trim();
@@ -450,10 +468,170 @@ export default function Home() {
     }
   }
 
+  // ---- Login ----
+  async function fazerLogin(e) {
+    e.preventDefault();
+    if (!gasUrl.includes("/exec")) {
+      showToast("Configure a URL do GAS primeiro", "erro");
+      return;
+    }
+    setSavingLogin(true);
+    try {
+      const r = await gasGet(gasUrl.trim(), { action: "login", usuario: loginUser.trim(), senha: loginSenha });
+      setUsuario(r.usuario || loginUser.trim());
+      localStorage.setItem("mentor_usuario", r.usuario || loginUser.trim());
+      localStorage.setItem("mentor_logado", "1");
+      setLogado(true);
+      setLoginUser("");
+      setLoginSenha("");
+      showToast(`Bem-vindo, ${r.usuario || loginUser.trim()}! ✓`);
+    } catch (err) {
+      showToast(err.message || String(err), "erro");
+    } finally {
+      setSavingLogin(false);
+    }
+  }
+
+  async function cadastrar(e) {
+    e.preventDefault();
+    if (!gasUrl.includes("/exec")) {
+      showToast("Configure a URL do GAS primeiro", "erro");
+      return;
+    }
+    if (cadSenha !== cadConfirma) {
+      showToast("Senhas não conferem", "erro");
+      return;
+    }
+    setSavingLogin(true);
+    try {
+      await gasGet(gasUrl.trim(), {
+        action: "cadastrarUsuario",
+        usuario: cadUser.trim(),
+        email: cadEmail.trim(),
+        senha: cadSenha,
+        confirma: cadConfirma,
+      });
+      showToast("Usuário cadastrado! Faça login.");
+      setLoginUser(cadUser.trim());
+      setLoginSenha("");
+      setCadUser("");
+      setCadEmail("");
+      setCadSenha("");
+      setCadConfirma("");
+      setLoginView("login");
+    } catch (err) {
+      showToast(err.message || String(err), "erro");
+    } finally {
+      setSavingLogin(false);
+    }
+  }
+
+  async function recuperar(e) {
+    e.preventDefault();
+    if (!gasUrl.includes("/exec")) {
+      showToast("Configure a URL do GAS primeiro", "erro");
+      return;
+    }
+    setSavingLogin(true);
+    try {
+      const r = await gasGet(gasUrl.trim(), { action: "recuperarSenha", email: recEmail.trim() });
+      showToast(r.mensagem || "Senha enviada! ✓");
+      setRecEmail("");
+      setLoginView("login");
+    } catch (err) {
+      showToast(err.message || String(err), "erro");
+    } finally {
+      setSavingLogin(false);
+    }
+  }
+
+  function sair() {
+    localStorage.removeItem("mentor_logado");
+    setLogado(false);
+    setForm(vazio);
+    setLista([]);
+    setEditId(null);
+    showToast("Deslogado");
+  }
+
   return (
     <div className="mentor-page">
-      {/* TOPO */}
-      <header className="mentor-topo">
+      {/* LOGIN / CADASTRO / RECUPERAR */}
+      {!checkingLogin && !logado ? (
+        <div className="login-overlay">
+          <div className="login-card">
+            <div className="login-logo">✉</div>
+            <h1>Protocolo Mentor</h1>
+
+            {loginView === "login" && (
+              <form onSubmit={fazerLogin} className="login-form">
+                <label>Usuário ou E-mail</label>
+                <input
+                  type="text"
+                  placeholder="Digite seu usuário ou e-mail"
+                  value={loginUser}
+                  onChange={(e) => setLoginUser(e.target.value)}
+                  autoFocus
+                  required
+                />
+                <label>Senha</label>
+                <input
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={loginSenha}
+                  onChange={(e) => setLoginSenha(e.target.value)}
+                  required
+                />
+                <button type="submit" className="btn-login" disabled={savingLogin}>
+                  {savingLogin ? "Entrando..." : "Entrar"}
+                </button>
+                <div className="login-links">
+                  <button type="button" onClick={() => setLoginView("cadastro")}>Criar conta</button>
+                  <button type="button" onClick={() => setLoginView("recuperar")}>Esqueci a senha</button>
+                </div>
+              </form>
+            )}
+
+            {loginView === "cadastro" && (
+              <form onSubmit={cadastrar} className="login-form">
+                <label>Usuário</label>
+                <input type="text" placeholder="Nome de usuário" value={cadUser} onChange={(e) => setCadUser(e.target.value)} autoFocus required />
+                <label>E-mail</label>
+                <input type="email" placeholder="seu@email.com" value={cadEmail} onChange={(e) => setCadEmail(e.target.value)} required />
+                <label>Senha</label>
+                <input type="password" placeholder="Mínimo 4 caracteres" value={cadSenha} onChange={(e) => setCadSenha(e.target.value)} required minLength={4} />
+                <label>Confirmar senha</label>
+                <input type="password" placeholder="Repita a senha" value={cadConfirma} onChange={(e) => setCadConfirma(e.target.value)} required />
+                <button type="submit" className="btn-login" disabled={savingLogin}>
+                  {savingLogin ? "Cadastrando..." : "Cadastrar"}
+                </button>
+                <div className="login-links">
+                  <button type="button" onClick={() => setLoginView("login")}>← Voltar ao login</button>
+                </div>
+              </form>
+            )}
+
+            {loginView === "recuperar" && (
+              <form onSubmit={recuperar} className="login-form">
+                <p className="login-info">Informe o e-mail cadastrado. A senha será enviada por e-mail.</p>
+                <label>E-mail</label>
+                <input type="email" placeholder="seu@email.com" value={recEmail} onChange={(e) => setRecEmail(e.target.value)} autoFocus required />
+                <button type="submit" className="btn-login" disabled={savingLogin}>
+                  {savingLogin ? "Enviando..." : "Recuperar senha"}
+                </button>
+                <div className="login-links">
+                  <button type="button" onClick={() => setLoginView("login")}>← Voltar ao login</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* TOPO (só logado) */}
+      {logado ? (
+        <>
+        <header className="mentor-topo">
         <div className="mentor-topo-left">
           <div className="mentor-logo">✉</div>
           <span className="mentor-titulo">Protocolo Mentor</span>
@@ -476,6 +654,7 @@ export default function Home() {
               onBlur={salvarGasUrl}
               aria-label="Usuário"
             />
+            <button type="button" className="btn-sair" title="Sair" onClick={sair}>⏻</button>
           </div>
         </div>
       </header>
@@ -733,6 +912,8 @@ export default function Home() {
           {toast.texto}
         </div>
       )}
+        </>
+      ) : null}
     </div>
   );
 }
