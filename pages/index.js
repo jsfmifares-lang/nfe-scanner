@@ -136,8 +136,8 @@ export default function Home() {
         try { localStorage.setItem("mentor_gas_url", envUrl); } catch {}
       }
     } else setShowConfig(true);
-    // Verifica login salvo
-    const logadoSalvo = typeof window !== "undefined" ? localStorage.getItem("mentor_logado") === "1" : false;
+    // Verifica login salvo (sessionStorage: apaga ao fechar a aba → força login sempre)
+    const logadoSalvo = typeof window !== "undefined" ? sessionStorage.getItem("mentor_logado") === "1" : false;
     const usuarioSalvo = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
     if (usuarioSalvo) setUsuario(usuarioSalvo);
     setLogado(logadoSalvo);
@@ -480,7 +480,7 @@ export default function Home() {
       const r = await gasGet(gasUrl.trim(), { action: "login", usuario: loginUser.trim(), senha: loginSenha });
       setUsuario(r.usuario || loginUser.trim());
       localStorage.setItem("mentor_usuario", r.usuario || loginUser.trim());
-      localStorage.setItem("mentor_logado", "1");
+      sessionStorage.setItem("mentor_logado", "1");
       setLogado(true);
       setLoginUser("");
       setLoginSenha("");
@@ -546,7 +546,7 @@ export default function Home() {
   }
 
   function sair() {
-    localStorage.removeItem("mentor_logado");
+    sessionStorage.removeItem("mentor_logado");
     setLogado(false);
     setForm(vazio);
     setLista([]);
