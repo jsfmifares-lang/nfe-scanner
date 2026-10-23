@@ -147,6 +147,11 @@ export default function Home() {
   useEffect(() => {
     if (!logado) return;
     if (gasUrl && gasUrl.includes("/exec")) {
+      // Mostra o cache local na hora (lista instantânea) enquanto o GAS atualiza em segundo plano
+      try {
+        const cache = localStorage.getItem("mentor_lista_" + gasUrl);
+        if (cache) setLista(JSON.parse(cache));
+      } catch {}
       carregar(gasUrl);
       carregarMapa(gasUrl);
       carregarClientes(gasUrl);
@@ -170,7 +175,9 @@ export default function Home() {
     setLoading(true);
     try {
       const data = await gasGet(base, { action: "listar" });
-      setLista(Array.isArray(data.dados) ? data.dados : []);
+      const dados = Array.isArray(data.dados) ? data.dados : [];
+      setLista(dados);
+      try { localStorage.setItem("mentor_lista_" + base, JSON.stringify(dados)); } catch {}
     } catch (e) {
       showToast("Erro ao carregar: " + e.message, "erro");
     } finally {
@@ -830,7 +837,7 @@ export default function Home() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && lista.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Carregando...</td></tr>
             ) : filtrada.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Nenhum protocolo encontrado</td></tr>
