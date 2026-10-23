@@ -280,3 +280,43 @@ body {
   cursor: pointer; margin-left: 6px; padding: 2px 6px;
 }
 .btn-sair:hover { color: #ffcccc; }
+
+/* ===== Tela do recebedor (mentor) ===== */
+.recv-sub {
+  background: #2f5d8d; color: #fff; font-size: 20px; font-weight: 700;
+  padding: 10px 16px; margin: 8px 8px 0; border-radius: 6px; flex-shrink: 0;
+}
+.recv-count { color: #f5c542; margin-left: 6px; }
+.recv-tabelas {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  gap: 10px; padding: 8px;
+}
+.recv-tabela-wrap {
+  flex: 1; min-height: 120px; overflow: auto;
+  border: 1px solid #c9c9c9; border-radius: 6px; background: #fff;
+}
+.recv-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.recv-tabela th, .recv-tabela td {
+  padding: 7px 8px; text-align: left; border-bottom: 1px solid #e2e2e2;
+}
+.recv-tabela thead th {
+  position: sticky; top: 0; z-index: 1; font-weight: 700; font-size: 13px;
+}
+.recv-pend thead th { background: #e5a138; color: #1a1a1a; }
+.recv-conf thead th { background: #2e9d4f; color: #fff; }
+.recv-pend tbody tr:nth-child(odd) { background: #fff; }
+.recv-pend tbody tr:nth-child(even) { background: #efefef; }
+.recv-conf tbody tr:nth-child(odd) { background: #d3f2dd; }
+.recv-conf tbody tr:nth-child(even) { background: #fff; }
+.recv-tabela .c { text-align: center; }
+.recv-tabela .status { font-weight: 600; }
+.recv-circulo {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid #e5a138; background: #fff; color: #e5a138;
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 0;
+}
+.recv-circulo:hover { background: #fdf0dc; }
+.recv-check { color: #27ae60; font-size: 20px; font-weight: 700; }
+.recv-nenhum, .recv-vazio { text-align: center; padding: 18px; color: #666; }
+.recv-vazio { flex: 1; display: flex; align-items: center; justify-content: center; }
+.mentor-user-nome { font-weight: 600; font-size: 14px; }

@@ -33,6 +33,8 @@ function doGet(e) {
       result = editarProtocolo(e.parameter);
     } else if (action === 'excluir') {
       result = excluirProtocolo(e.parameter);
+    } else if (action === 'receber') {
+      result = receberProtocolo(e.parameter);
     } else if (action === 'buscar') {
       result = buscarColado(e.parameter);
     } else if (action === 'mapaColado') {
@@ -223,6 +225,29 @@ function excluirProtocolo(d) {
       if (String(vals[i][0]) === id) {
         aba.deleteRow(i + 2);
         return { success: true, mensagem: 'Protocolo excluído' };
+      }
+    }
+    return { success: false, mensagem: 'Registro não encontrado: ' + id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ---- Recebedor (mentor): confirma recebimento marcando status = 'CONFIRMADO' ----
+function receberProtocolo(d) {
+  var id = String((d && d.id) || '').trim();
+  if (!id) return { success: false, mensagem: 'ID é obrigatório' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = getAba();
+    var last = aba.getLastRow();
+    if (last < 2) return { success: false, mensagem: 'Registro não encontrado' };
+    var vals = aba.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]) === id) {
+        aba.getRange(i + 2, 10).setValue('CONFIRMADO'); // col J = status
+        return { success: true, mensagem: 'Protocolo recebido' };
       }
     }
     return { success: false, mensagem: 'Registro não encontrado: ' + id };

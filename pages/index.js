@@ -102,6 +102,7 @@ export default function Home() {
   const [cadConfirma, setCadConfirma] = useState("");
   const [recEmail, setRecEmail] = useState("");
   const [savingLogin, setSavingLogin] = useState(false);
+  const [ehMentor, setEhMentor] = useState(false); // e-mail contém "mentor" → tela de recebimento
 
   function showToast(texto, tipo = "ok") {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -139,7 +140,9 @@ export default function Home() {
     // Verifica login salvo (sessionStorage: apaga ao fechar a aba → força login sempre)
     const logadoSalvo = typeof window !== "undefined" ? sessionStorage.getItem("mentor_logado") === "1" : false;
     const usuarioSalvo = typeof window !== "undefined" ? localStorage.getItem("mentor_usuario") || "" : "";
+    const emailSalvo = typeof window !== "undefined" ? sessionStorage.getItem("mentor_email") || "" : "";
     if (usuarioSalvo) setUsuario(usuarioSalvo);
+    setEhMentor(emailSalvo.toLowerCase().includes("mentor"));
     setLogado(logadoSalvo);
     setCheckingLogin(false);
   }, []);
@@ -468,6 +471,31 @@ export default function Home() {
     );
   }, [lista, busca]);
 
+  // Tela do recebedor (mentor): pendentes = status diferente de CONFIRMADO
+  const pendentes = useMemo(
+    () => filtrada.filter((r) => String(r.status || "").toUpperCase() !== "CONFIRMADO"),
+    [filtrada]
+  );
+  const confirmados = useMemo(
+    () => filtrada.filter((r) => String(r.status || "").toUpperCase() === "CONFIRMADO"),
+    [filtrada]
+  );
+
+  async function receber(item) {
+    if (!gasUrl.includes("/exec")) return;
+    try {
+      await gasGet(gasUrl.trim(), { action: "receber", id: item.id });
+      setLista((l) => {
+        const nova = l.map((r) => (r.id === item.id ? { ...r, status: "CONFIRMADO" } : r));
+        try { localStorage.setItem("mentor_lista_" + gasUrl.trim(), JSON.stringify(nova)); } catch {}
+        return nova;
+      });
+      showToast("Protocolo recebido ✓");
+    } catch (err) {
+      showToast(err.message || String(err), "erro");
+    }
+  }
+
   function onBarcodeKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -488,6 +516,9 @@ export default function Home() {
       setUsuario(r.usuario || loginUser.trim());
       localStorage.setItem("mentor_usuario", r.usuario || loginUser.trim());
       sessionStorage.setItem("mentor_logado", "1");
+      const email = r.email || "";
+      sessionStorage.setItem("mentor_email", email);
+      setEhMentor(email.toLowerCase().includes("mentor"));
       setLogado(true);
       setLoginUser("");
       setLoginSenha("");
@@ -554,6 +585,8 @@ export default function Home() {
 
   function sair() {
     sessionStorage.removeItem("mentor_logado");
+    sessionStorage.removeItem("mentor_email");
+    setEhMentor(false);
     setLogado(false);
     setForm(vazio);
     setLista([]);
@@ -637,6 +670,121 @@ export default function Home() {
 
       {/* TOPO (só logado) */}
       {logado ? (
+        <>
+        {ehMentor ? (
+          <>
+            {/* ===== TELA DO RECEBEDOR (mentor) ===== */}
+            <header className="mentor-topo">
+              <div className="mentor-topo-left">
+                <div className="mentor-logo">✉</div>
+                <span className="mentor-titulo">Protocolo almoxarifado para mentor</span>
+              </div>
+              <div className="mentor-topo-right">
+                <div className="mentor-busca">
+                  <span>🔍</span>
+                  <input
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Pesquisar"
+                    aria-label="Pesquisar"
+                  />
+                </div>
+                <div className="mentor-user" title="Usuário logado">
+                  <span>👤</span>
+                  <span className="mentor-user-nome">{usuario}</span>
+                </div>
+              </div>
+            </header>
+
+            <div className="recv-sub">
+              Receber nota remessa/vale <span className="recv-count">({pendentes.length})</span>
+            </div>
+
+            {loading && lista.length === 0 ? (
+              <div className="recv-vazio">Carregando...</div>
+            ) : (
+              <div className="recv-tabelas">
+                {/* Tabela 1: pendentes */}
+                <div className="recv-tabela-wrap">
+                  <table className="recv-tabela recv-pend">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 46 }}>Item</th>
+                        <th style={{ width: 70 }}>Doc.</th>
+                        <th>Hospital/Cliente</th>
+                        <th>Paciente/Cliente</th>
+                        <th style={{ width: 170 }}>Status</th>
+                        <th style={{ width: 100 }}>Data protocolo</th>
+                        <th>Observação</th>
+                        <th style={{ width: 60 }}>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendentes.length === 0 ? (
+                        <tr><td colSpan={8} className="recv-nenhum">Nenhum protocolo pendente</td></tr>
+                      ) : (
+                        pendentes.map((r, i) => (
+                          <tr key={r.id || i}>
+                            <td className="c">{pendentes.length - i}</td>
+                            <td><b>{r.numero_doc}</b></td>
+                            <td>{r.cliente_hospital}</td>
+                            <td>{r.paciente}</td>
+                            <td className="status">{r.tipo_devolucao || r.status || STATUS_PADRAO}</td>
+                            <td className="c">{formatarData(r.data_protocolo)}</td>
+                            <td>{r.observacao}</td>
+                            <td className="c">
+                              <button
+                                className="recv-circulo"
+                                title="Confirmar recebimento"
+                                onClick={() => receber(r)}
+                              >○</button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Tabela 2: confirmados */}
+                <div className="recv-tabela-wrap">
+                  <table className="recv-tabela recv-conf">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 46 }}>Item</th>
+                        <th style={{ width: 70 }}>Doc.</th>
+                        <th>Hospital/Cliente</th>
+                        <th>Paciente/Cliente</th>
+                        <th style={{ width: 170 }}>Status</th>
+                        <th style={{ width: 100 }}>Data protocolo</th>
+                        <th>Observação</th>
+                        <th style={{ width: 60 }}>👍</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {confirmados.length === 0 ? (
+                        <tr><td colSpan={8} className="recv-nenhum">Nenhum protocolo confirmado</td></tr>
+                      ) : (
+                        confirmados.map((r, i) => (
+                          <tr key={r.id || i}>
+                            <td className="c">{confirmados.length - i}</td>
+                            <td><b>{r.numero_doc}</b></td>
+                            <td>{r.cliente_hospital}</td>
+                            <td>{r.paciente}</td>
+                            <td className="status">{r.tipo_devolucao || r.status || STATUS_PADRAO}</td>
+                            <td className="c">{formatarData(r.data_protocolo)}</td>
+                            <td>{r.observacao}</td>
+                            <td className="c"><span className="recv-check">✔</span></td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
         <>
         <header className="mentor-topo">
         <div className="mentor-topo-left">
@@ -912,6 +1060,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+        </>
+        )}
 
       {/* TOAST */}
       {toast && (
