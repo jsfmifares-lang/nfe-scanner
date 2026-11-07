@@ -194,16 +194,14 @@ export default function Home() {
       const nf = { ...f, [campo]: valor };
       if (campo === "codigo_barras") {
         const s = String(valor || "").trim();
-        const dig = s.replace(/\D/g, "");
-        if (dig.length === 44) {
-          // Código 44 dígitos (NFe): extrai Nota sozinho
-          if (!f.numero_doc) {
-            const n = extrairNumeroDoc(s);
-            if (n) {
-              nf.numero_doc = n;
-              notaExtraida = n;
-            }
-          }
+        // Sempre que houver chave de 44 dígitos (em qualquer formato), extrai a Nota
+        // e força Escolha=NOTA — mesmo que o campo já tenha sido poluído pelo
+        // modo VALE durante a digitação/bip progressivo do leitor.
+        const n = extrairNumeroDoc(s);
+        if (n) {
+          nf.tipo_doc = "NOTA";
+          nf.numero_doc = n;
+          notaExtraida = n;
         } else if (s.length > 0 && s.length < 44) {
           // Código curto (VALE): Escolha=VALE, Nota=código
           nf.tipo_doc = "VALE";
