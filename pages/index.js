@@ -598,7 +598,7 @@ export default function Home() {
       {!checkingLogin && !logado ? (
         <div className="login-overlay">
           <div className="login-card">
-            <div className="login-logo">✉</div>
+            <div className="login-logo"><img src="/logo.jpg" alt="Logo" /></div>
             <h1>Protocolo Mentor</h1>
 
             {loginView === "login" && (
@@ -674,7 +674,7 @@ export default function Home() {
             {/* ===== TELA DO RECEBEDOR (mentor) ===== */}
             <header className="mentor-topo">
               <div className="mentor-topo-left">
-                <div className="mentor-logo">✉</div>
+                <div className="mentor-logo"><img src="/logo.jpg" alt="Logo" /></div>
                 <span className="mentor-titulo">Protocolo almoxarifado para mentor</span>
               </div>
               <div className="mentor-topo-right">
@@ -786,7 +786,7 @@ export default function Home() {
         <>
         <header className="mentor-topo">
         <div className="mentor-topo-left">
-          <div className="mentor-logo">✉</div>
+          <div className="mentor-logo"><img src="/logo.jpg" alt="Logo" /></div>
           <span className="mentor-titulo">Protocolo Mentor</span>
         </div>
         <div className="mentor-topo-right">

@@ -33,7 +33,9 @@ body {
   background: #fff; color: #2f5d8d;
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; font-weight: 800;
+  overflow: hidden; padding: 2px;
 }
+.mentor-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .mentor-titulo { font-size: 19px; font-weight: 700; font-style: italic; }
 .mentor-topo-right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .mentor-busca, .mentor-user { display: flex; align-items: center; gap: 6px; }
@@ -252,7 +254,9 @@ body {
   background: #2f5d8d; color: #fff;
   width: 64px; height: 64px; border-radius: 16px;
   display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden; padding: 4px;
 }
+.login-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .login-card h1 { font-size: 22px; margin: 0 0 20px; color: #2f5d8d; }
 .login-form { text-align: left; }
 .login-form label { display: block; font-size: 13px; font-weight: 600; color: #2f5d8d; margin: 10px 0 4px; }
