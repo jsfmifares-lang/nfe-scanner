@@ -251,7 +251,7 @@ body {
 }
 .login-logo {
   font-size: 40px; margin-bottom: 8px;
-  background: #2f5d8d; color: #fff;
+  background: #fff; color: #2f5d8d;
   width: 64px; height: 64px; border-radius: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   overflow: hidden; padding: 4px;
