@@ -102,6 +102,7 @@ export default function Home() {
   const [cadConfirma, setCadConfirma] = useState("");
   const [recEmail, setRecEmail] = useState("");
   const [savingLogin, setSavingLogin] = useState(false);
+  const [showSenha, setShowSenha] = useState(false); // mostra/esconde senha no login
   const [ehMentor, setEhMentor] = useState(false); // e-mail contém "mentor" → tela de recebimento
 
   function showToast(texto, tipo = "ok") {
@@ -613,13 +614,23 @@ export default function Home() {
                   required
                 />
                 <label>Senha</label>
-                <input
-                  type="password"
-                  placeholder="Digite sua senha"
-                  value={loginSenha}
-                  onChange={(e) => setLoginSenha(e.target.value)}
-                  required
-                />
+                <div className="senha-wrap">
+                  <input
+                    type={showSenha ? "text" : "password"}
+                    placeholder="Digite sua senha"
+                    value={loginSenha}
+                    onChange={(e) => setLoginSenha(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="senha-olho"
+                    title={showSenha ? "Ocultar senha" : "Mostrar senha"}
+                    onClick={() => setShowSenha((v) => !v)}
+                  >
+                    {showSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
                 <button type="submit" className="btn-login" disabled={savingLogin}>
                   {savingLogin ? "Entrando..." : "Entrar"}
                 </button>
