@@ -480,6 +480,12 @@ export default function Home() {
     [filtrada]
   );
 
+  // Tela normal: NÃO mostra registros já confirmados pelo mentor
+  const visiveis = useMemo(
+    () => filtrada.filter((r) => String(r.status || "").toUpperCase() !== "CONFIRMADO"),
+    [filtrada]
+  );
+
   async function receber(item) {
     if (!gasUrl.includes("/exec")) return;
     try {
@@ -826,7 +832,7 @@ export default function Home() {
       {/* SUBTITULO */}
       <div className="mentor-sub">
         <span>{editId ? "Editar protocolo" : "Protocolar nota remessa/vale"}</span>
-        <span className="mentor-count">{filtrada.length} registro(s)</span>
+        <span className="mentor-count">{visiveis.length} registro(s)</span>
       </div>
 
       {/* CONFIG GAS */}
@@ -996,12 +1002,12 @@ export default function Home() {
           <tbody>
             {loading && lista.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Carregando...</td></tr>
-            ) : filtrada.length === 0 ? (
+            ) : visiveis.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 20 }}>Nenhum protocolo encontrado</td></tr>
             ) : (
-              filtrada.map((r, i) => (
+              visiveis.map((r, i) => (
                 <tr key={r.id || i} className={editId === r.id ? "em-edicao" : ""}>
-                  <td className="c">{filtrada.length - i}</td>
+                  <td className="c">{visiveis.length - i}</td>
                   <td><b>{r.numero_doc}</b></td>
                   <td>{r.cliente_hospital}</td>
                   <td>{r.paciente}</td>
